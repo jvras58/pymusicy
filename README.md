@@ -272,6 +272,58 @@ Tudo pronto para você testar o fluxo completo logo de cara.
 
 ---
 
+## ⚠️ Sistema de Penalidade (Fail Mode)
+
+O jogo possui um **modo de penalidade** que adiciona desafio e consequências quando você perde um acorde.
+
+### Como funciona
+
+1. **Monitoramento**: O jogo monitora se você tocou o acorde atual (fez o gesto de pinça).
+
+2. **Detecção de erro**: Quando o tempo do acorde acaba e você **não tocou**, o jogo entra no **Modo FAIL**.
+
+3. **Modo FAIL**:
+   - A música **pausa imediatamente**
+   - Um **som dissonante de erro** toca (acorde feio sintetizado)
+   - A tela fica **vermelha pulsante** com a mensagem **"ERROU!"**
+   - Uma barra de progresso mostra o tempo restante da penalidade
+   - Após o tempo de penalidade, a música **retoma automaticamente**
+
+### Configurações
+
+Todas as configurações do Fail Mode estão em `src/utils/config.py`:
+
+```python
+# --- CONFIGURAÇÕES DE PENALIDADE ---
+FAIL_MODE_ENABLED = True      # True = ativado, False = desativado
+PENALTY_TIME_SECONDS = 3.0    # Tempo de penalidade (segundos)
+FAIL_COOLDOWN_SECONDS = 2.0   # Tempo de imunidade após um FAIL
+MIN_CHORD_DURATION = 1.0      # Duração mínima do acorde para contar como erro
+```
+
+| Variável | Descrição | Valor Padrão |
+|----------|-----------|--------------|
+| `FAIL_MODE_ENABLED` | Ativa ou desativa completamente o sistema de penalidade | `True` |
+| `PENALTY_TIME_SECONDS` | Quanto tempo (em segundos) você fica "preso" na tela de erro | `3.0` |
+| `FAIL_COOLDOWN_SECONDS` | Tempo de "imunidade" após sair de um FAIL (evita FAILs consecutivos) | `2.0` |
+| `MIN_CHORD_DURATION` | Acordes mais curtos que esse valor (em segundos) não disparam FAIL | `1.0` |
+
+### Desativando o Fail Mode
+
+Para jogar no **modo relaxado** (sem penalidades), basta editar `src/utils/config.py`:
+
+```python
+FAIL_MODE_ENABLED = False
+```
+
+### Dicas para evitar FAILs
+
+- Fique atento ao **arco de progresso** ao redor do círculo central — ele mostra quanto tempo resta para tocar
+- Acordes muito curtos (< 1 segundo) são ignorados pelo sistema de FAIL
+- Após um FAIL, você tem um período de imunidade para se recuperar
+
+---
+
 ## 🧪 Detalhes técnicos do sintetizador
 
 O motor de som usa **síntese aditiva simples**:
