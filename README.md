@@ -46,6 +46,45 @@ Isso cria a ilusão de que **seus dedos estão produzindo o som**.
 
 ---
 
+## 🏗️ Arquitetura do Projeto
+
+O projeto segue uma estrutura modular organizada em pastas para facilitar a manutenção e expansão. Abaixo, uma visão geral dos diretórios e arquivos principais:
+
+### Estrutura Geral
+
+```
+pymusicy/
+├── .gitignore              # Arquivo para ignorar arquivos temporários no Git (ex.: __pycache__, .venv)
+├── .python-version         # Especifica a versão do Python recomendada (3.12)
+├── main.py                 # Ponto de entrada do jogo; inicializa e executa a classe MusicGame
+├── Makefile                # Scripts de automação para instalação, execução e limpeza (usa uv)
+├── pyproject.toml          # Configuração do projeto Python (dependências, versão, etc.)
+├── README.md               # Este arquivo de documentação
+└── src/                    # Código-fonte principal
+    ├── assets/             # Recursos estáticos
+    │   └── chords.json     # Dados JSON com os acordes e tempos da música (ex.: start, end, chord_majmin)
+    │   └── musica.mp3      # Musica mp3
+    ├── audio/              # Módulo de síntese de áudio
+    │   └── synthesizer.py  # Classe Sintetizador: gera ondas sonoras para acordes usando NumPy e Pygame
+    ├── game/               # Lógica principal do jogo
+    │   └── engine.py       # Classe MusicGame: gerencia o loop do jogo, visão computacional, áudio e UI
+    ├── utils/              # Utilitários e configurações
+    │   ├── config.py       # Constantes musicais (notas base, intervalos) e dados de exemplo
+    │   └── data_loader.py  # Função para carregar dados de acordes do JSON ou fallback para padrão
+    └── vision/             # Módulo de visão computacional
+        └── tracker.py      # Classe HandTracker: detecta gestos da mão via MediaPipe e OpenCV
+```
+
+### Descrição dos Módulos Principais
+- **src/game/engine.py**: Núcleo do jogo. Integra todos os módulos (áudio, visão, dados) em um loop principal. Lida com entrada do usuário, renderização da UI e lógica de pontuação.
+- **src/audio/synthesizer.py**: Responsável pela geração de sons. Usa síntese aditiva para criar acordes em tempo real, com cache para otimização.
+- **src/vision/tracker.py**: Processa a webcam para detectar pinças (gestos de "toque"). Retorna posição e estado do gesto para o engine.
+- **src/utils/data_loader.py**: Carrega os dados dos acordes do arquivo JSON ou usa um conjunto padrão se o arquivo não existir.
+- **src/utils/config.py**: Contém definições musicais (frequências de notas, intervalos de acordes) e dados de exemplo para testes.
+- **src/assets/chords.json**: Arquivo de dados com o mapa de acordes da música (tempos de início/fim e nomes dos acordes).
+
+Essa estrutura permite fácil extensão, como adicionar novos modos de jogo ou sintetizadores alternativos.
+
 ## 🛠️ Instalação e requisitos
 
 Você precisa de:
@@ -102,7 +141,7 @@ make run
 Ou diretamente com `uv`:
 
 ```bash
-uv run chord_hero.py
+uv run main.py
 ```
 
 ### 4. Interface
