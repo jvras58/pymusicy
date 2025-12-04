@@ -2,382 +2,400 @@ import cv2
 import mediapipe as mp
 import pygame
 import numpy as np
-import random
+import json
 import math
+import time
 import os
 
-# --- CONFIGURAÇÕES DO JOGO ---
-LARGURA_TELA = 800
-ALTURA_TELA = 600
-FPS = 30
-TITULO = "CV Rhythm Hero - Use seus dedos!"
+# --- DADOS DE EXEMPLO (SEU JSON) ---
+# Na prática, você carregaria isso de um arquivo .json externo
+DADOS_CHORDS_PADRAO = [
+    {"start": 0.0, "end": 2.0, "chord_majmin": "C:maj", "chord_simple_pop": "C"},
+    {"start": 2.0, "end": 4.0, "chord_majmin": "G:maj", "chord_simple_pop": "G"},
+    {"start": 4.0, "end": 6.0, "chord_majmin": "A:min", "chord_simple_pop": "Am"},
+    {"start": 6.0, "end": 8.0, "chord_majmin": "F:maj", "chord_simple_pop": "F"},
+]
 
-# Cores (R, G, B)
-BRANCO = (255, 255, 255)
-PRETO = (0, 0, 0)
-VERDE = (0, 255, 0)
-VERMELHO = (255, 0, 0)
-AZUL = (0, 100, 255)
-AMARELO = (255, 255, 0)
-ROXO = (128, 0, 128)
-LARANJA = (255, 165, 0)
+# Tenta carregar dados reais se você salvar o JSON que enviou num arquivo
+if os.path.exists("chords.json"):
+    with open("chords.json", "r") as f:
+        DADOS_CHORDS = json.load(f)
+else:
+    # Usa um loop básico se não tiver arquivo, ou usa o snippet que você mandou
+    # Vou expandir o snippet que você mandou para ser usado como padrão se não houver arquivo
+    DADOS_CHORDS = [
+        {"start": 0.27, "end": 11.66, "chord_majmin": "G:maj", "chord_simple_pop": "G"},
+        {
+            "start": 11.66,
+            "end": 16.46,
+            "chord_majmin": "A:min",
+            "chord_simple_pop": "Am",
+        },
+        {
+            "start": 16.46,
+            "end": 17.66,
+            "chord_majmin": "C:maj",
+            "chord_simple_pop": "C",
+        },
+        # Adicionei um loop final para teste
+        {
+            "start": 17.66,
+            "end": 25.00,
+            "chord_majmin": "D:maj",
+            "chord_simple_pop": "D",
+        },
+    ]
 
-# Configurações das Raias (Lanes)
-CORES_RAIAS = [VERDE, VERMELHO, AMARELO, AZUL]
-NOME_DEDOS = ["Indicador", "Médio", "Anelar", "Mindinho"]
-TECLAS_DEBUG = [pygame.K_d, pygame.K_f, pygame.K_j, pygame.K_k]  # Fallback para teclado
+# --- TEORIA MUSICAL E SINTETIZADOR ---
+NOTAS_BASE = {
+    "C": 261.63,
+    "C#": 277.18,
+    "Db": 277.18,
+    "D": 293.66,
+    "D#": 311.13,
+    "Eb": 311.13,
+    "E": 329.63,
+    "F": 349.23,
+    "F#": 369.99,
+    "Gb": 369.99,
+    "G": 392.00,
+    "G#": 415.30,
+    "Ab": 415.30,
+    "A": 440.00,
+    "A#": 466.16,
+    "Bb": 466.16,
+    "B": 493.88,
+}
+
+INTERVALOS = {
+    "maj": [0, 4, 7],  # Tônica, Terça Maior, Quinta Justa
+    "min": [0, 3, 7],  # Tônica, Terça Menor, Quinta Justa
+    "dim": [0, 3, 6],
+    "aug": [0, 4, 8],
+    "7": [0, 4, 7, 10],
+}
 
 
-# --- CLASSE DE ÁUDIO ---
-class GerenciadorAudio:
+class Sintetizador:
     def __init__(self):
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
-        self.usando_mp3 = False
+        pygame.mixer.pre_init(44100, -16, 2, 1024)
+        pygame.mixer.init()
+        pygame.init()
+        self.cache_acordes = {}
 
-        # Tenta carregar música em formatos suportados
-        formatos = ["musica.mp3", "musica.ogg", "musica.wav"]
-        self.usando_mp3 = False
-        for caminho_musica in formatos:
-            if os.path.exists(caminho_musica):
-                try:
-                    pygame.mixer.music.load(caminho_musica)
-                    pygame.mixer.music.set_volume(0.1)  # Começa baixo (silencio)
-                    self.usando_mp3 = True
-                    print(f"Música externa carregada de {caminho_musica}!")
-                    break
-                except Exception as e:
-                    print(
-                        f"Erro ao carregar {caminho_musica}: {e}. Tentando próximo formato..."
-                    )
-        if not self.usando_mp3:
-            print(
-                "Nenhuma música compatível encontrada. Usando sintetizador procedural."
-            )
-
-        # Sons sintetizados para fallback (Escala Pentatônica)
-        self.sons_notas = []
-        if not self.usando_mp3:
-            frequencias = [261.63, 293.66, 329.63, 392.00]  # C4, D4, E4, G4
-            for freq in frequencias:
-                self.sons_notas.append(self.gerar_onda_senoidal(freq))
-
-        # Sons de feedback
-        self.som_erro = self.gerar_ruido_branco()
-
-    def gerar_onda_senoidal(self, freq, duracao=0.3):
+    def criar_onda(self, freq, duracao=1.0, volume=0.5):
         sample_rate = 44100
         n_samples = int(sample_rate * duracao)
         t = np.linspace(0, duracao, n_samples, False)
-        # Onda com decay suave para parecer um instrumento
-        onda = np.sin(2 * np.pi * freq * t) * np.exp(-3 * t)
+
+        # Síntese Aditiva para um som mais "piano elétrico" e menos "apito"
+        # Fundamental + Harmônicos
+        onda = 0.6 * np.sin(2 * np.pi * freq * t)
+        onda += 0.3 * np.sin(2 * np.pi * freq * 2 * t)  # Oitava acima
+        onda += 0.1 * np.sin(2 * np.pi * freq * 3 * t)  # Quinta da oitava
+
+        # Envelope ADSR simples (Ataque rápido, Decay suave)
+        envelope = np.exp(-3 * t)
+        onda = onda * envelope * volume
+
+        # Converter para 16-bit PCM
         onda = (onda * 32767).astype(np.int16)
-        stereo = np.column_stack((onda, onda))
-        return pygame.sndarray.make_sound(stereo)
+        return np.column_stack((onda, onda))
 
-    def gerar_ruido_branco(self, duracao=0.1):
-        sample_rate = 44100
-        n_samples = int(sample_rate * duracao)
-        ruido = np.random.uniform(-1, 1, n_samples) * 0.3
-        ruido = (ruido * 32767).astype(np.int16)
-        stereo = np.column_stack((ruido, ruido))
-        return pygame.sndarray.make_sound(stereo)
+    def gerar_acorde(self, nome_acorde_full):
+        # Ex: "G:maj" ou "A:min"
+        if nome_acorde_full in self.cache_acordes:
+            return self.cache_acordes[nome_acorde_full]
 
-    def tocar_nota(self, indice_raia):
-        if self.usando_mp3:
-            # Se acertar, aumenta o volume da música (sensação de tocar)
-            pygame.mixer.music.set_volume(1.0)
-        else:
-            # Se não tiver música, toca o tom sintetizado
-            self.sons_notas[indice_raia].play()
+        try:
+            if ":" in nome_acorde_full:
+                tonica, tipo = nome_acorde_full.split(":")
+            else:
+                tonica = nome_acorde_full
+                tipo = "maj"
 
-    def tocar_erro(self):
-        self.som_erro.play()
-        if self.usando_mp3:
-            pygame.mixer.music.set_volume(0.1)  # Abaixa volume no erro
+            freq_base = NOTAS_BASE.get(tonica, 261.63)
+            intervalos = INTERVALOS.get(tipo, INTERVALOS["maj"])
 
-    def iniciar_musica_fundo(self):
-        if self.usando_mp3:
-            pygame.mixer.music.play(-1)
+            # Misturar as notas do acorde
+            audio_final = None
 
-    def atualizar(self):
-        # Efeito de decaimento do volume se usar MP3
-        if self.usando_mp3:
-            vol_atual = pygame.mixer.music.get_volume()
-            if vol_atual > 0.1:
-                pygame.mixer.music.set_volume(max(0.1, vol_atual - 0.02))
+            for semi_tons in intervalos:
+                # Calcular frequência da nota do intervalo (f = f0 * 2^(n/12))
+                freq_nota = freq_base * (2 ** (semi_tons / 12.0))
+                onda_nota = self.criar_onda(freq_nota)
+
+                if audio_final is None:
+                    audio_final = onda_nota
+                else:
+                    audio_final = audio_final + onda_nota  # Soma as ondas
+
+            # Normalizar para evitar distorção (clipping)
+            max_val = np.max(np.abs(audio_final))
+            if max_val > 0:
+                audio_final = (audio_final / max_val * 32767).astype(np.int16)
+
+            som = pygame.sndarray.make_sound(audio_final)
+            self.cache_acordes[nome_acorde_full] = som
+            return som
+        except Exception as e:
+            print(f"Erro ao gerar acorde {nome_acorde_full}: {e}")
+            return None
 
 
-# --- CLASSE DE DETECÇÃO DE MÃO ---
-class DetectorMaos:
+# --- VISÃO COMPUTACIONAL ---
+class HandTracker:
     def __init__(self):
         self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5,
-        )
+        self.hands = self.mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
         self.mp_draw = mp.solutions.drawing_utils
-        # IDs das pontas dos dedos: 4=Polegar, 8=Indicador, 12=Médio, 16=Anelar, 20=Mindinho
-        self.ids_pontas = [8, 12, 16, 20]
-        self.estado_anterior = [
-            False,
-            False,
-            False,
-            False,
-        ]  # Para evitar disparos contínuos
+        self.last_pinch_time = 0
 
-    def encontrar_maos(self, img, draw=True):
+    def process(self, img):
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        self.results = self.hands.process(img_rgb)
+        results = self.hands.process(img_rgb)
+        pinched = False
+        pos = (0, 0)
 
-        gestos_ativos = [
-            False,
-            False,
-            False,
-            False,
-        ]  # [Indicador, Médio, Anelar, Mindinho]
-        posicao_polegar = None
+        if results.multi_hand_landmarks:
+            for hand_lms in results.multi_hand_landmarks:
+                self.mp_draw.draw_landmarks(
+                    img, hand_lms, self.mp_hands.HAND_CONNECTIONS
+                )
 
-        if self.results.multi_hand_landmarks:
-            for hand_landmarks in self.results.multi_hand_landmarks:
-                if draw:
-                    self.mp_draw.draw_landmarks(
-                        img, hand_landmarks, self.mp_hands.HAND_CONNECTIONS
-                    )
-
-                # Obter coordenadas em pixels
                 h, w, c = img.shape
-                pontos = []
-                for id, lm in enumerate(hand_landmarks.landmark):
-                    cx, cy = int(lm.x * w), int(lm.y * h)
-                    pontos.append((cx, cy))
+                # Pontas dos dedos: 4 (Polegar), 8 (Indicador)
+                x4, y4 = (
+                    int(hand_lms.landmark[4].x * w),
+                    int(hand_lms.landmark[4].y * h),
+                )
+                x8, y8 = (
+                    int(hand_lms.landmark[8].x * w),
+                    int(hand_lms.landmark[8].y * h),
+                )
 
-                # Verificar distância entre Polegar (4) e os outros dedos
-                if len(pontos) >= 21:
-                    x4, y4 = pontos[4]
-                    posicao_polegar = (x4, y4)
+                dist = math.hypot(x8 - x4, y8 - y4)
+                pos = ((x4 + x8) // 2, (y4 + y8) // 2)
 
-                    for i, id_dedo in enumerate(self.ids_pontas):
-                        x_dedo, y_dedo = pontos[id_dedo]
-                        # Distância Euclidiana
-                        distancia = math.hypot(x4 - x_dedo, y4 - y_dedo)
+                if dist < 40:  # Limiar de toque
+                    pinched = True
+                    cv2.circle(img, pos, 15, (0, 255, 0), cv2.FILLED)
+                else:
+                    cv2.circle(img, pos, 10, (0, 255, 255), 2)
 
-                        # Limiar de toque (ajuste conforme necessário)
-                        if distancia < 40:
-                            cv2.circle(img, (x4, y4), 15, CORES_RAIAS[i], cv2.FILLED)
-                            gestos_ativos[i] = True
-
-        return img, gestos_ativos, posicao_polegar
+        return img, pinched, pos
 
 
-# --- CLASSE DO JOGO ---
-class JogoRitmo:
+# --- JOGO PRINCIPAL ---
+class MusicGame:
     def __init__(self):
-        pygame.init()
-        self.tela = pygame.display.set_mode((LARGURA_TELA, ALTURA_TELA))
-        pygame.display.set_caption(TITULO)
+        self.WIDTH, self.HEIGHT = 1000, 700
+        self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
+        pygame.display.set_caption("Chord Hero AI")
         self.clock = pygame.time.Clock()
-        self.fonte = pygame.font.SysFont("Arial", 30, bold=True)
-        self.fonte_grande = pygame.font.SysFont("Arial", 60, bold=True)
 
+        self.synth = Sintetizador()
+        self.tracker = HandTracker()
         self.cap = cv2.VideoCapture(0)
-        self.detector = DetectorMaos()
-        self.audio = GerenciadorAudio()
 
-        self.notas = []  # Lista de notas caindo
-        self.velocidade_nota = 7
-        self.raia_largura = LARGURA_TELA // 4
+        # Preparar áudio
+        self.carregar_musica()
+        self.pre_carregar_acordes()
 
-        self.pontuacao = 0
-        self.combo = 0
-        self.rodando = True
-        self.game_over = False
+        # Variáveis de Estado
+        self.running = True
+        self.start_time = time.time()
+        self.score = 0
+        self.ultimo_acorde_index = -1
+        self.acorde_atual = None
+        self.feedback_visual = []  # Lista de efeitos visuais
 
-        self.spawn_timer = 0
-        self.audio.iniciar_musica_fundo()
+        # Sistema de Input
+        self.was_pinched = False
 
-    def desenhar_interface(self, frame_camera):
-        # 1. Desenhar o fundo (Feed da Câmera escurecido)
-        frame_camera = np.rot90(frame_camera)  # Rotaciona para Pygame
-        frame_camera = cv2.cvtColor(frame_camera, cv2.COLOR_BGR2RGB)
-        frame_camera = pygame.surfarray.make_surface(frame_camera)
-        frame_camera = pygame.transform.scale(frame_camera, (LARGURA_TELA, ALTURA_TELA))
+    def carregar_musica(self):
+        if os.path.exists("musica.mp3"):
+            pygame.mixer.music.load("musica.mp3")
+            pygame.mixer.music.set_volume(0.4)  # Música de fundo mais baixa
+            pygame.mixer.music.play()
+            self.usando_musica_real = True
+            print("Música carregada.")
+        else:
+            print("Aviso: musica.mp3 não encontrada. Rodando apenas com clock interno.")
+            self.usando_musica_real = False
+            self.start_time = time.time()
 
-        # Escurecer o fundo para destacar as notas
-        sombra = pygame.Surface((LARGURA_TELA, ALTURA_TELA))
-        sombra.set_alpha(150)
-        sombra.fill((0, 0, 0))
+    def pre_carregar_acordes(self):
+        print("Sintetizando acordes...")
+        # Cria os sons antes do jogo começar para não travar
+        unique_chords = set(d["chord_majmin"] for d in DADOS_CHORDS)
+        for chord in unique_chords:
+            self.synth.gerar_acorde(chord)
+        print("Acordes prontos!")
 
-        self.tela.blit(frame_camera, (0, 0))
-        self.tela.blit(sombra, (0, 0))
+    def get_music_time(self):
+        if self.usando_musica_real:
+            # get_pos retorna milissegundos
+            return pygame.mixer.music.get_pos() / 1000.0
+        else:
+            return time.time() - self.start_time
 
-        # 2. Desenhar as Raias e Linha de Acerto
-        linha_acerto_y = ALTURA_TELA - 100
-        pygame.draw.line(
-            self.tela, BRANCO, (0, linha_acerto_y), (LARGURA_TELA, linha_acerto_y), 3
-        )
+    def get_acorde_atual(self, music_time):
+        # Busca linear simples (pode ser otimizado para busca binária)
+        for i, dado in enumerate(DADOS_CHORDS):
+            if dado["start"] <= music_time <= dado["end"]:
+                return i, dado
+        return -1, None
 
-        for i in range(4):
-            x = i * self.raia_largura
-            # Linhas divisórias
-            pygame.draw.line(self.tela, (50, 50, 50), (x, 0), (x, ALTURA_TELA), 2)
+    def draw_ui(self, frame_cv, music_time, chord_data, is_pinching, pinch_pos):
+        # Converter câmera para Pygame
+        frame_cv = np.rot90(frame_cv)
+        frame_cv = cv2.cvtColor(frame_cv, cv2.COLOR_BGR2RGB)
+        frame_surf = pygame.surfarray.make_surface(frame_cv)
+        frame_surf = pygame.transform.scale(frame_surf, (self.WIDTH, self.HEIGHT))
 
-            # Indicador de tecla/dedo na base
-            cor = CORES_RAIAS[i]
-            # Efeito visual se a "tecla" estiver pressionada
-            if self.input_atual[i]:
-                pygame.draw.rect(
-                    self.tela, cor, (x, linha_acerto_y, self.raia_largura, 20)
+        # Filtro escuro para UI brilhar
+        overlay = pygame.Surface((self.WIDTH, self.HEIGHT))
+        overlay.set_alpha(100)
+        overlay.fill((20, 20, 40))
+
+        self.screen.blit(frame_surf, (0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        # Fontes
+        font_big = pygame.font.SysFont("Arial", 80, bold=True)
+        font_small = pygame.font.SysFont("Arial", 30)
+
+        # --- VISUALIZAÇÃO DO ACORDE ---
+        if chord_data:
+            nome_acorde = chord_data["chord_simple_pop"]  # Ex: Am, G, C
+            duracao_total = chord_data["end"] - chord_data["start"]
+            progresso = (music_time - chord_data["start"]) / duracao_total
+
+            # Centro da tela
+            cx, cy = self.WIDTH // 2, self.HEIGHT // 2
+
+            # Círculo de ritmo (pulsa com o tempo)
+            raio_base = 150
+            raio_pulso = raio_base + (math.sin(time.time() * 10) * 5)
+
+            cor = (0, 200, 255)  # Azul Neon
+            if is_pinching:
+                cor = (0, 255, 100)  # Verde se estiver tocando
+                raio_pulso += 20
+
+            pygame.draw.circle(self.screen, cor, (cx, cy), int(raio_pulso), 5)
+
+            # Arco de progresso do acorde (círculo externo que preenche conforme o tempo)
+            rect_arc = pygame.Rect(cx - 180, cy - 180, 360, 360)
+            # Pygame desenha arco em radianos (sentido anti-horário, começando do topo)
+            angulo_inicio = math.pi / 2  # Começa no topo (90 graus)
+            angulo_fim = angulo_inicio - (
+                2 * math.pi * progresso
+            )  # Preenche no sentido horário
+
+            # Desenha o arco de progresso
+            if progresso > 0.01:  # Evita desenhar arco muito pequeno
+                pygame.draw.arc(
+                    self.screen, cor, rect_arc, angulo_fim, angulo_inicio, 8
                 )
-                pygame.draw.circle(
-                    self.tela, cor, (x + self.raia_largura // 2, linha_acerto_y), 40, 4
-                )
-            else:
-                pygame.draw.circle(
-                    self.tela, cor, (x + self.raia_largura // 2, linha_acerto_y), 30, 2
-                )
 
-            # Nome do dedo
-            texto_dedo = self.fonte.render(NOME_DEDOS[i][0:3], True, BRANCO)
-            self.tela.blit(
-                texto_dedo, (x + self.raia_largura // 2 - 15, ALTURA_TELA - 40)
-            )
+            # Círculo de fundo do arco (cinza)
+            pygame.draw.circle(self.screen, (60, 60, 80), (cx, cy), 180, 3)
 
-    def gerenciar_notas(self):
-        # Spawning simples (pode ser melhorado com detecção de batida)
-        self.spawn_timer += 1
-        if self.spawn_timer > 30:  # A cada 30 frames (aprox 1 seg)
-            if random.random() < 0.7:  # 70% de chance de spawnar
-                raia = random.randint(0, 3)
-                # Nota: [raia, y, ativa]
-                self.notas.append([raia, -50, True])
-            self.spawn_timer = 0
-
-        # Atualizar posições
-        linha_acerto_y = ALTURA_TELA - 100
-        zona_acerto = 60  # Tolerância
-
-        for nota in self.notas[:]:
-            nota[1] += self.velocidade_nota  # Desce a nota
-
-            raia = nota[0]
-            y = nota[1]
-
-            # Desenhar nota
-            cor = CORES_RAIAS[raia]
-            rect = (raia * self.raia_largura + 10, y, self.raia_largura - 20, 40)
-            pygame.draw.rect(self.tela, cor, rect, border_radius=10)
-            # Brilho interno
+            # Barra de progresso inferior (mantida como indicador secundário)
+            pygame.draw.rect(self.screen, (50, 50, 50), (cx - 200, cy + 200, 400, 20))
             pygame.draw.rect(
-                self.tela,
-                (255, 255, 255),
-                (raia * self.raia_largura + 20, y + 10, self.raia_largura - 40, 20),
-                2,
-                border_radius=5,
+                self.screen, cor, (cx - 200, cy + 200, 400 * progresso, 20)
             )
 
-            # Lógica de Acerto (Verifica se está na zona E se o usuário apertou AGORA)
-            distancia_centro = abs(y - linha_acerto_y)
+            # Texto do Acorde
+            text_surf = font_big.render(nome_acorde, True, (255, 255, 255))
+            text_rect = text_surf.get_rect(center=(cx, cy))
+            self.screen.blit(text_surf, text_rect)
 
-            # Se passou da tela
-            if y > ALTURA_TELA:
-                self.notas.remove(nota)
-                if nota[2]:  # Se ainda estava ativa (não foi acertada)
-                    self.combo = 0
-                    self.audio.tocar_erro()
+            text_hint = font_small.render("PINCE PARA TOCAR", True, (200, 200, 200))
+            self.screen.blit(text_hint, (cx - text_hint.get_width() // 2, cy + 80))
 
-            # Checar colisão
-            # self.input_trigger[raia] é verdadeiro apenas no frame que o gesto começa
-            elif distancia_centro < zona_acerto and nota[2]:
-                if self.input_trigger[raia]:
-                    self.pontuacao += 10 + self.combo
-                    self.combo += 1
-                    nota[2] = False  # Marca como acertada para não contar duas vezes
-                    self.notas.remove(nota)  # Remove visualmente
-                    self.audio.tocar_nota(raia)
+        else:
+            text_wait = font_small.render("Aguardando música...", True, (255, 255, 255))
+            self.screen.blit(text_wait, (20, 20))
 
-                    # Efeito visual de acerto
-                    x_hit = raia * self.raia_largura
-                    pygame.draw.rect(
-                        self.tela,
-                        (255, 255, 255),
-                        (x_hit, linha_acerto_y - 10, self.raia_largura, 20),
-                    )
+        # Efeitos visuais (Partículas)
+        for p in self.feedback_visual[:]:
+            p["r"] += 2
+            p["alpha"] -= 5
+            if p["alpha"] <= 0:
+                self.feedback_visual.remove(p)
+            else:
+                s = pygame.Surface((p["r"] * 2, p["r"] * 2), pygame.SRCALPHA)
+                pygame.draw.circle(s, (*p["cor"], p["alpha"]), (p["r"], p["r"]), p["r"])
+                self.screen.blit(s, (p["x"] - p["r"], p["y"] - p["r"]))
 
-    def desenhar_hud(self):
-        texto_score = self.fonte_grande.render(f"Score: {self.pontuacao}", True, BRANCO)
-        texto_combo = self.fonte.render(
-            f"Combo: x{self.combo}", True, AMARELO if self.combo > 5 else BRANCO
-        )
-
-        self.tela.blit(texto_score, (20, 20))
-        self.tela.blit(texto_combo, (20, 80))
-
-        # Instruções
-        instrucao = self.fonte.render(
-            "Junte o POLEGAR com outro dedo na hora certa!", True, (200, 200, 200)
-        )
-        instrucao_rect = instrucao.get_rect(
-            center=(LARGURA_TELA // 2, ALTURA_TELA - 150)
-        )
-        self.tela.blit(instrucao, instrucao_rect)
-
-    def executar(self):
-        while self.rodando:
-            self.clock.tick(FPS)
-
-            # 1. Eventos Pygame (Quit e Teclado Debug)
+    def run(self):
+        while self.running:
+            # 1. Input Pygame
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.rodando = False
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.rodando = False
+                    self.running = False
 
-            # 2. Captura de Câmera e Visão Computacional
-            sucesso, img = self.cap.read()
-            if not sucesso:
-                continue
+            # 2. Visão Computacional
+            ret, frame = self.cap.read()
+            if not ret:
+                break
+            frame = cv2.flip(frame, 1)
+            frame, is_pinching, pinch_pos = self.tracker.process(frame)
 
-            img = cv2.flip(img, 1)  # Espelhar para ficar intuitivo
-            img, gestos, polegar_pos = self.detector.encontrar_maos(img)
+            # 3. Lógica do Jogo
+            music_time = self.get_music_time()
+            idx, chord_data = self.get_acorde_atual(music_time)
 
-            # 3. Processar Inputs (Gestos + Teclado para debug)
-            keys = pygame.key.get_pressed()
-            self.input_atual = [False] * 4
-            self.input_trigger = [False] * 4  # Apenas no frame que iniciou o toque
+            # Lógica de "Tocar" o acorde
+            # Trigger: Se pinçou AGORA e não estava pinçando antes
+            trigger = is_pinching and not self.was_pinched
 
-            for i in range(4):
-                # Ativa se o gesto for detectado OU a tecla for pressionada
-                esta_pressionado = gestos[i] or keys[TECLAS_DEBUG[i]]
+            if trigger and chord_data:
+                # TOCA O ACORDE!
+                nome_completo = chord_data["chord_majmin"]
+                som = self.synth.gerar_acorde(nome_completo)
+                if som:
+                    som.set_volume(1.0)  # Volume alto para destacar
+                    som.play()
 
-                self.input_atual[i] = esta_pressionado
+                # Feedback Visual
+                self.feedback_visual.append(
+                    {
+                        "x": pinch_pos[0]
+                        * self.WIDTH
+                        // frame.shape[1],  # Mapear coord
+                        "y": pinch_pos[1] * self.HEIGHT // frame.shape[0],
+                        "r": 20,
+                        "alpha": 255,
+                        "cor": (0, 255, 100),
+                    }
+                )
+                self.score += 100
 
-                # Detectar borda de subida (apenas quando muda de False para True)
-                if esta_pressionado and not self.detector.estado_anterior[i]:
-                    self.input_trigger[i] = True
+            self.was_pinched = is_pinching
 
-                # Atualizar estado anterior
-                self.detector.estado_anterior[i] = esta_pressionado
+            # Reiniciar música se acabar (loop para teste)
+            if (
+                not pygame.mixer.music.get_busy()
+                and self.usando_musica_real
+                and music_time > 1
+            ):
+                # Reinicia lógica se necessário ou encerra
+                pass
 
-            # 4. Desenhar e Atualizar Lógica do Jogo
-            self.desenhar_interface(img)
-            self.gerenciar_notas()
-            self.desenhar_hud()
-            self.audio.atualizar()
-
+            # 4. Renderizar
+            self.draw_ui(frame, music_time, chord_data, is_pinching, pinch_pos)
             pygame.display.flip()
+            self.clock.tick(30)
 
-        # Limpeza
         self.cap.release()
         pygame.quit()
 
 
 if __name__ == "__main__":
-    try:
-        jogo = JogoRitmo()
-        jogo.executar()
-    except Exception as e:
-        print(f"Ocorreu um erro: {e}")
-        pygame.quit()
+    game = MusicGame()
+    game.run()
