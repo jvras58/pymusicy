@@ -113,6 +113,40 @@ Isso instalará as bibliotecas necessárias:
 
 ---
 
+## 🏗️ Construindo um Executável
+
+Para criar um executável standalone do jogo (útil para distribuição sem instalar Python), use o PyInstaller.
+
+### 1. Instalar dependências de desenvolvimento
+
+```bash
+make install-dev
+```
+
+Ou diretamente:
+
+```bash
+uv sync --group dev
+```
+
+### 2. Construir o executável
+
+```bash
+make build
+```
+
+Ou diretamente:
+
+```bash
+uv run pyinstaller --onefile main.py --add-data "src/assets;assets" --collect-data mediapipe --hidden-import mediapipe --hidden-import cv2
+```
+
+O executável será gerado em `dist/main.exe` (no Windows).
+
+**Nota:** Os arquivos estáticos em `src/assets/` (como `chords.json` e `musica.mp3`) são incluídos automaticamente no executável.
+
+---
+
 ## 🎮 Como jogar
 
 ### 1. Prepare o ambiente

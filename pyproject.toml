@@ -10,3 +10,6 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "pygame>=2.6.1",
 ]
+
+[dependency-groups]
+dev = ["pyinstaller>=6.0.0"]

@@ -7,6 +7,7 @@ import os
 from src.audio.synthesizer import Sintetizador
 from src.vision.tracker import HandTracker
 from src.utils.data_loader import load_chords
+from src.utils.paths import get_assets_path
 
 
 class MusicGame:
@@ -39,15 +40,16 @@ class MusicGame:
         self.was_pinched = False
 
     def carregar_musica(self):
-        if os.path.exists("src/assets/musica.mp3"):
-            pygame.mixer.music.load("src/assets/musica.mp3")
+        musica_path = os.path.join(get_assets_path(), "musica.mp3")
+        if os.path.exists(musica_path):
+            pygame.mixer.music.load(musica_path)
             pygame.mixer.music.set_volume(0.4)  # Música de fundo mais baixa
             pygame.mixer.music.play()
             self.usando_musica_real = True
             print("Música carregada.")
         else:
             print(
-                "Aviso: src/assets/musica.mp3 não encontrada. Rodando apenas com clock interno."
+                f"Aviso: {musica_path} não encontrada. Rodando apenas com clock interno."
             )
             self.usando_musica_real = False
             self.start_time = time.time()
