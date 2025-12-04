@@ -8,6 +8,11 @@ from src.audio.synthesizer import Sintetizador
 from src.vision.tracker import HandTracker
 from src.utils.data_loader import load_chords
 from src.utils.paths import get_assets_path
+from src.utils.config import (
+    PENALTY_TIME_SECONDS,
+    FAIL_COOLDOWN_SECONDS,
+    MIN_CHORD_DURATION,
+)
 
 
 class MusicGame:
@@ -38,6 +43,13 @@ class MusicGame:
 
         # Sistema de Input
         self.was_pinched = False
+
+        # Sistema de Penalidade (FAIL Mode)
+        self.acorde_tocado = False  # Se o jogador tocou o acorde atual
+        self.fail_mode = False  # Se está no modo de penalidade
+        self.fail_start_time = 0  # Quando começou a penalidade
+        self.pause_position = 0  # Posição da música quando pausou
+        self.last_fail_end_time = 0  # Quando terminou o último FAIL (para cooldown)
 
     def carregar_musica(self):
         musica_path = os.path.join(get_assets_path(), "musica.mp3")
@@ -176,8 +188,56 @@ class MusicGame:
             frame, is_pinching, pinch_pos = self.tracker.process(frame)
 
             # 3. Lógica do Jogo
+
+            # Verificar se está em modo FAIL
+            if self.fail_mode:
+                tempo_na_penalidade = time.time() - self.fail_start_time
+                if tempo_na_penalidade >= PENALTY_TIME_SECONDS:
+                    # Sair do modo FAIL e retomar música
+                    self.fail_mode = False
+                    self.last_fail_end_time = time.time()  # Marcar quando saiu do FAIL
+                    pygame.mixer.music.unpause()
+                    self.acorde_tocado = True  # Marcar como tocado para não dar FAIL imediato no acorde atual
+                else:
+                    # Ainda em penalidade - desenhar tela de erro e continuar loop
+                    self._draw_fail_screen(frame, tempo_na_penalidade)
+                    pygame.display.flip()
+                    self.clock.tick(30)
+                    continue  # Pula o resto do loop
+
             music_time = self.get_music_time()
             idx, chord_data = self.get_acorde_atual(music_time)
+
+            # Detectar mudança de acorde (o acorde anterior terminou)
+            if idx != self.ultimo_acorde_index:
+                # Verifica se havia um acorde anterior e se NÃO foi tocado
+                if self.ultimo_acorde_index >= 0 and not self.acorde_tocado:
+                    # Verificar se está em cooldown (acabou de sair de um FAIL)
+                    tempo_desde_ultimo_fail = time.time() - self.last_fail_end_time
+                    em_cooldown = tempo_desde_ultimo_fail < FAIL_COOLDOWN_SECONDS
+
+                    # Verificar se o acorde anterior era longo o suficiente para contar
+                    acorde_anterior = (
+                        self.dados_chords[self.ultimo_acorde_index]
+                        if self.ultimo_acorde_index < len(self.dados_chords)
+                        else None
+                    )
+                    duracao_acorde = (
+                        (acorde_anterior["end"] - acorde_anterior["start"])
+                        if acorde_anterior
+                        else 0
+                    )
+                    acorde_muito_curto = duracao_acorde < MIN_CHORD_DURATION
+
+                    if not em_cooldown and not acorde_muito_curto:
+                        # ENTRAR NO MODO FAIL!
+                        self._entrar_fail_mode()
+                        self.ultimo_acorde_index = idx
+                        continue  # Pula o resto do loop
+
+                # Reset para novo acorde
+                self.acorde_tocado = False
+                self.ultimo_acorde_index = idx
 
             # Lógica de "Tocar" o acorde
             # Trigger: Se pinçou AGORA e não estava pinçando antes
@@ -185,6 +245,7 @@ class MusicGame:
 
             if trigger and chord_data:
                 # TOCA O ACORDE!
+                self.acorde_tocado = True  # Marca que tocou este acorde
                 nome_completo = chord_data["chord_majmin"]
                 som = self.synth.gerar_acorde(nome_completo)
                 if som:
@@ -223,3 +284,86 @@ class MusicGame:
 
         self.cap.release()
         pygame.quit()
+
+    def _entrar_fail_mode(self):
+        """Entra no modo de penalidade quando o jogador não toca o acorde"""
+        self.fail_mode = True
+        self.fail_start_time = time.time()
+
+        # Pausar a música
+        pygame.mixer.music.pause()
+
+        # Tocar som de erro
+        self.synth.tocar_som_erro()
+
+        print("FAIL! Acorde não tocado!")
+
+    def _draw_fail_screen(self, frame_cv, tempo_na_penalidade):
+        """Desenha a tela de penalidade vermelha"""
+        # Converter câmera para Pygame
+        frame_cv = np.rot90(frame_cv)
+        frame_cv = cv2.cvtColor(frame_cv, cv2.COLOR_BGR2RGB)
+        frame_surf = pygame.surfarray.make_surface(frame_cv)
+        frame_surf = pygame.transform.scale(frame_surf, (self.WIDTH, self.HEIGHT))
+
+        # Overlay vermelho semi-transparente
+        overlay = pygame.Surface((self.WIDTH, self.HEIGHT))
+        # Pulsar o vermelho para efeito dramático
+        intensidade = int(180 + 40 * math.sin(time.time() * 8))
+        overlay.set_alpha(intensidade)
+        overlay.fill((200, 0, 0))
+
+        self.screen.blit(frame_surf, (0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        # Fontes
+        font_big = pygame.font.SysFont("Arial", 100, bold=True)
+        font_medium = pygame.font.SysFont("Arial", 40)
+        font_small = pygame.font.SysFont("Arial", 30)
+
+        cx, cy = self.WIDTH // 2, self.HEIGHT // 2
+
+        # Texto "ERROU!"
+        text_erro = font_big.render("ERROU!", True, (255, 255, 255))
+        text_rect = text_erro.get_rect(center=(cx, cy - 50))
+
+        # Sombra do texto
+        text_sombra = font_big.render("ERROU!", True, (100, 0, 0))
+        self.screen.blit(text_sombra, (text_rect.x + 4, text_rect.y + 4))
+        self.screen.blit(text_erro, text_rect)
+
+        # Barra de progresso da penalidade
+        tempo_restante = PENALTY_TIME_SECONDS - tempo_na_penalidade
+        progresso = tempo_na_penalidade / PENALTY_TIME_SECONDS
+
+        bar_width = 400
+        bar_height = 30
+        bar_x = cx - bar_width // 2
+        bar_y = cy + 50
+
+        # Fundo da barra
+        pygame.draw.rect(
+            self.screen, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height)
+        )
+        # Progresso
+        pygame.draw.rect(
+            self.screen,
+            (255, 255, 255),
+            (bar_x, bar_y, int(bar_width * progresso), bar_height),
+        )
+        # Borda
+        pygame.draw.rect(
+            self.screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 3
+        )
+
+        # Texto do tempo restante
+        text_tempo = font_medium.render(
+            f"Aguarde {tempo_restante:.1f}s", True, (255, 255, 255)
+        )
+        text_rect_tempo = text_tempo.get_rect(center=(cx, bar_y + bar_height + 40))
+        self.screen.blit(text_tempo, text_rect_tempo)
+
+        # Mensagem motivacional
+        text_msg = font_small.render("Não perca o ritmo!", True, (255, 200, 200))
+        text_rect_msg = text_msg.get_rect(center=(cx, cy + 150))
+        self.screen.blit(text_msg, text_rect_msg)

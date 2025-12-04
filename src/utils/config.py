@@ -54,3 +54,12 @@ INTERVALOS = {
     "aug": [0, 4, 8],
     "7": [0, 4, 7, 10],
 }
+
+# --- CONFIGURAÇÕES DE PENALIDADE ---
+PENALTY_TIME_SECONDS = 3.0  # Tempo de penalidade quando erra (em segundos)
+FAIL_COOLDOWN_SECONDS = (
+    2.0  # Tempo de imunidade após sair de um FAIL (não dá FAIL novamente)
+)
+MIN_CHORD_DURATION = (
+    1.0  # Duração mínima do acorde (em segundos) para contar como FAIL se não tocar
+)
