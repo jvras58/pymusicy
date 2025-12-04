@@ -1,4 +1,3 @@
-
 # 🎸 Chord Hero AI – Harmonia Ativa
 
 O **Chord Hero AI** é um experimento interativo que transforma sua **webcam em um instrumento musical**.
@@ -103,7 +102,7 @@ make run
 Ou diretamente com `uv`:
 
 ```bash
-uv run cv_rhythm_game.py
+uv run chord_hero.py
 ```
 
 ### 4. Interface
@@ -134,13 +133,29 @@ uv run cv_rhythm_game.py
 
 Para usar **qualquer música** no jogo, você precisa de dois passos:
 
-### 1. Áudio
+### 1. Áudio (`musica.mp3`)
 
 Coloque o arquivo de áudio na pasta do projeto e renomeie para:
 
 ```text
 musica.mp3
 ```
+
+#### Escolha da faixa: original vs. backing track
+
+Para a experiência ser máxima (aquela sensação de **“uau, sou eu quem está tocando!”**), o ideal é que o arquivo `musica.mp3` seja uma **Backing Track**: uma faixa de fundo **sem o instrumento harmônico principal** (guitarra/piano/teclado).
+
+* **Se você usar a música original completa** (com a guitarra/piano original tocando):
+
+  * **Funciona?** Sim, perfeitamente.
+  * **Sensação:** vira um **reforço**. Você sente que está tocando junto com a banda, como uma segunda guitarra ou dobrando o piano. Ainda é divertido, mas a música não “morre” se você parar.
+
+* **Se você usar uma Backing Track** (só bateria, baixo, etc.):
+
+  * **Sensação:** é de **autoria total**.
+
+    * Se você parar, a harmonia some e fica só a “cozinha” (bateria/baixo).
+    * Quando você acerta, a música fica completa.
 
 ### 2. Acordes (`chords.json`)
 
@@ -212,4 +227,3 @@ O motor de som usa **síntese aditiva simples**:
 * Trocar a música e o `chords.json` para testar diferentes estilos.
 * Refinar gestos, envelopes e timbres para aproximar ainda mais de um instrumento real.
 * Integrar novos modos de jogo (ex.: treino de progressões, modos de improviso, etc.).
-
