@@ -9,6 +9,7 @@ from src.vision.tracker import HandTracker
 from src.utils.data_loader import load_chords
 from src.utils.paths import get_assets_path
 from src.utils.config import (
+    FAIL_MODE_ENABLED,
     PENALTY_TIME_SECONDS,
     FAIL_COOLDOWN_SECONDS,
     MIN_CHORD_DURATION,
@@ -229,7 +230,7 @@ class MusicGame:
                     )
                     acorde_muito_curto = duracao_acorde < MIN_CHORD_DURATION
 
-                    if not em_cooldown and not acorde_muito_curto:
+                    if FAIL_MODE_ENABLED and not em_cooldown and not acorde_muito_curto:
                         # ENTRAR NO MODO FAIL!
                         self._entrar_fail_mode()
                         self.ultimo_acorde_index = idx

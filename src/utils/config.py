@@ -56,6 +56,9 @@ INTERVALOS = {
 }
 
 # --- CONFIGURAÇÕES DE PENALIDADE ---
+FAIL_MODE_ENABLED = (
+    True  # Ativar/desativar o modo de penalidade (True = ativado, False = desativado)
+)
 PENALTY_TIME_SECONDS = 3.0  # Tempo de penalidade quando erra (em segundos)
 FAIL_COOLDOWN_SECONDS = (
     2.0  # Tempo de imunidade após sair de um FAIL (não dá FAIL novamente)
