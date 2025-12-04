@@ -158,9 +158,8 @@ O executável será gerado em `dist/main.exe` (no Windows).
 
 Na pasta do projeto:
 
-* `chord_hero.py` (script principal)
-* (Opcional, mas recomendado) `musica.mp3`
-* (Opcional) `chords.json` com os tempos da música
+* (Opcional, mas recomendado) `src/assets/musica.mp3`
+* (Opcional) `src/assets/chords.json` com os tempos da música
 
 > Se não houver `chords.json`, o jogo usa um **padrão de demonstração**.
 
