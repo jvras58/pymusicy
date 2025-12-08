@@ -410,27 +410,35 @@ class MusicGame:
         gesto_rect = gesto_name.get_rect(center=(cx, cy + 150))
         self.screen.blit(gesto_name, gesto_rect)
         
-        # Mostrar gesto detectado (canto inferior)
-        if landmarks is not None:
-            # Label
-            label_text = self.font_small.render("Seu gesto:", True, (150, 150, 150))
-            self.screen.blit(label_text, (20, self.HEIGHT - 80))
+        # Mostrar gesto detectado (canto inferior direito, layout vertical)
+        if landmarks is not None and self.emoji_font:
+            # Posição base (canto inferior direito)
+            base_x = self.WIDTH - 120
+            base_y = self.HEIGHT - 120
             
-            # Emoji do gesto detectado
-            if self.emoji_font:
-                emoji_surf, emoji_r = self.emoji_font.render(detected_emoji, (200, 200, 200))
-                self.screen.blit(emoji_surf, (20, self.HEIGHT - 55))
-                
-                # Nome do gesto
-                detected_name = self.gesture_recognizer.get_gesture_name(detected_gesture)
-                name_text = self.font_small.render(detected_name, True, (150, 150, 150))
-                self.screen.blit(name_text, (80, self.HEIGHT - 50))
+            # Emoji do gesto detectado (grande, em cima)
+            emoji_surf, emoji_rect = self.emoji_font.render(detected_emoji, (255, 255, 255))
+            emoji_rect.center = (base_x, base_y)
+            self.screen.blit(emoji_surf, emoji_rect)
             
-            # Barra de confiança
-            bar_width = 150
-            bar_height = 10
-            pygame.draw.rect(self.screen, (50, 50, 50), (20, self.HEIGHT - 30, bar_width, bar_height))
-            pygame.draw.rect(self.screen, (0, 200, 255), (20, self.HEIGHT - 30, int(bar_width * confidence), bar_height))
+            # Nome do gesto (abaixo do emoji)
+            detected_name = self.gesture_recognizer.get_gesture_name(detected_gesture)
+            name_text = self.font_small.render(detected_name, True, (180, 180, 180))
+            name_rect = name_text.get_rect(center=(base_x, base_y + 45))
+            self.screen.blit(name_text, name_rect)
+            
+            # Barra de confiança (abaixo do nome)
+            bar_width = 100
+            bar_height = 8
+            bar_x = base_x - bar_width // 2
+            bar_y = base_y + 70
+            
+            # Fundo da barra
+            pygame.draw.rect(self.screen, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height), border_radius=4)
+            # Preenchimento
+            fill_width = int(bar_width * confidence)
+            if fill_width > 0:
+                pygame.draw.rect(self.screen, (0, 200, 255), (bar_x, bar_y, fill_width, bar_height), border_radius=4)
         
         # Debug de gestos
         if SHOW_GESTURE_DEBUG and landmarks is not None:
