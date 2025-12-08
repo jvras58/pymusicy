@@ -49,8 +49,7 @@ class HandTracker:
 
                 if dist < 40:  # Limiar de toque
                     pinched = True
-                    cv2.circle(img, pos, 15, (0, 255, 0), cv2.FILLED)
-                else:
-                    cv2.circle(img, pos, 10, (0, 255, 255), 2)
+                    # Removido: círculo de pinça não é mais necessário
+                # Removido: círculo amarelo entre dedos
 
         return img, pinched, pos, landmarks

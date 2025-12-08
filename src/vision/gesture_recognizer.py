@@ -27,7 +27,7 @@ GESTURE_EMOJI = {
     GestureType.UNKNOWN: "❓",
     GestureType.OPEN_HAND: "✋",
     GestureType.FIST: "✊",
-    GestureType.PEACE: "✌️",
+    GestureType.PEACE: "✌",  # Sem variation selector para centralizar melhor
     GestureType.THUMB_UP: "👍",
     GestureType.INDEX_POINT: "👆",
     GestureType.ROCK: "🤘",
