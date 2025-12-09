@@ -56,6 +56,34 @@ uv run main.py
 - **Canto inferior direito**: Seu gesto atual + nível de confiança
 - **Preview**: Mostra o próximo acorde e gesto
 
+### 6. Controles do Teclado
+
+| Tecla | Ação |
+|-------|------|
+| `ESPAÇO` | Iniciar jogo / Reiniciar após fim |
+| `M` | Toggle Fail Mode (liga/desliga penalidade por tempo) |
+| `T` | Trocar Timbre do sintetizador |
+| `ESC` | Sair do jogo |
+
+### 7. Timbres Disponíveis
+
+Pressione **T** para alternar entre os timbres:
+
+| Timbre | Descrição |
+|--------|-----------|
+| **Piano** | Som clássico de piano elétrico (padrão) |
+| **Guitar** | Guitarra acústica com harmônicos ricos |
+| **Synth** | Sintetizador lead estilo dente de serra |
+| **Pad** | Som atmosférico e suave com chorus |
+| **Organ** | Órgão elétrico estilo Hammond |
+
+### 8. Fail Mode
+
+Quando **ativado** (padrão), você tem um tempo limite para fazer cada gesto:
+- Uma barra de tempo mostra quanto tempo resta (verde → amarelo → vermelho)
+- Se o tempo acabar, você entra no modo **ERROU!** com penalidade
+- Pressione **M** para desativar e jogar sem pressão de tempo
+
 ---
 
 ## 🧠 Como Funciona

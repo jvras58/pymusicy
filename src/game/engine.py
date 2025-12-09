@@ -13,7 +13,7 @@ import math
 import numpy as np
 import os
 from enum import Enum
-from src.audio.synthesizer import Sintetizador
+from src.audio.synthesizer import Sintetizador, Timbre
 from src.vision.tracker import HandTracker
 from src.vision.gesture_recognizer import GestureRecognizer, GestureType, GESTURE_EMOJI, GESTURE_NAMES
 from src.utils.data_loader import load_chords
@@ -82,8 +82,13 @@ class MusicGame:
         self.waiting_start_time = 0      # Quando começou a esperar o gesto
         
         # Controle de FAIL
+        self.fail_mode_enabled = FAIL_MODE_ENABLED  # Pode ser toggled com M
         self.fail_start_time = 0
         self.erros = 0
+        
+        # Controle de timbres (T para trocar)
+        self.timbres = list(Timbre)
+        self.timbre_index = 0
         
         # Feedback visual
         self.feedback_visual = []
@@ -208,7 +213,7 @@ class MusicGame:
             time_waiting = time.time() - self.waiting_start_time
             
             # Verificar timeout (FAIL MODE)
-            if FAIL_MODE_ENABLED and time_waiting >= chord_duration:
+            if self.fail_mode_enabled and time_waiting >= chord_duration:
                 self._entrar_fail_mode()
                 return
             
@@ -483,7 +488,7 @@ class MusicGame:
                 pygame.draw.rect(self.screen, (0, 200, 255), (bar_x, bar_y, fill_width, bar_height), border_radius=4)
         
         # Barra de tempo restante (se FAIL mode ativo)
-        if FAIL_MODE_ENABLED and self.acorde_atual:
+        if self.fail_mode_enabled and self.acorde_atual:
             chord_duration = self.acorde_atual["end"] - self.acorde_atual["start"]
             time_waiting = time.time() - self.waiting_start_time
             tempo_restante = chord_duration - time_waiting
@@ -746,6 +751,17 @@ class MusicGame:
                             self.iniciar_jogo()
                         elif self.game_state == GameState.FINISHED:
                             self.game_state = GameState.INTRO
+                    elif event.key == pygame.K_m:
+                        # Toggle fail mode
+                        self.fail_mode_enabled = not self.fail_mode_enabled
+                        status = "ATIVADO" if self.fail_mode_enabled else "DESATIVADO"
+                        print(f"Fail Mode: {status}")
+                    elif event.key == pygame.K_t:
+                        # Trocar timbre
+                        self.timbre_index = (self.timbre_index + 1) % len(self.timbres)
+                        novo_timbre = self.timbres[self.timbre_index]
+                        self.synth.set_timbre(novo_timbre)
+                        print(f"Timbre: {novo_timbre.value}")
 
             # 2. Captura de vídeo
             ret, frame = self.cap.read()
@@ -766,3 +782,4 @@ class MusicGame:
 
         self.cap.release()
         pygame.quit()
+
