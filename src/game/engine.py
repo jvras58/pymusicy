@@ -523,6 +523,76 @@ class MusicGame:
         # Debug de gestos
         if SHOW_GESTURE_DEBUG and landmarks is not None:
             self._draw_gesture_debug(landmarks, detected_gesture, confidence)
+        
+        # Painel de informações do acorde (chords.json)
+        self._draw_chord_info_panel()
+
+    def _draw_chord_info_panel(self):
+        """Desenha um painel mostrando todos os campos do acorde atual do chords.json."""
+        if self.acorde_atual is None:
+            return
+        
+        # Configurações do painel
+        panel_x = 15
+        panel_y = 150
+        panel_width = 200
+        line_height = 22
+        
+        # Fonte menor para o painel
+        if not hasattr(self, 'font_tiny') or self.font_tiny is None:
+            self.font_tiny = pygame.font.SysFont("Arial", 16)
+        
+        # Campos a exibir (label: key)
+        chord_fields = [
+            ("majmin", "chord_majmin"),
+            ("complex jazz", "chord_complex_jazz"),
+            ("simple jazz", "chord_simple_jazz"),
+            ("basic jazz", "chord_basic_jazz"),
+            ("complex pop", "chord_complex_pop"),
+            ("simple pop", "chord_simple_pop"),
+            ("basic pop", "chord_basic_pop"),
+            ("complex nash", "chord_complex_nashville"),
+            ("simple nash", "chord_simple_nashville"),
+            ("basic nash", "chord_basic_nashville"),
+        ]
+        
+        # Calcular altura do painel
+        num_fields = len(chord_fields) + 2  # +2 para timing info
+        panel_height = num_fields * line_height + 30
+        
+        # Desenhar fundo do painel com transparência
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel_surface.fill((20, 20, 40, 180))
+        pygame.draw.rect(panel_surface, (80, 80, 120), (0, 0, panel_width, panel_height), 2, border_radius=5)
+        self.screen.blit(panel_surface, (panel_x, panel_y))
+        
+        # Título do painel
+        title = self.font_tiny.render("📋 Acorde (chords.json)", True, (150, 200, 255))
+        self.screen.blit(title, (panel_x + 8, panel_y + 6))
+        
+        # Desenhar cada campo
+        y_offset = panel_y + 28
+        for label, key in chord_fields:
+            value = self.acorde_atual.get(key, "N/A")
+            if value is None:
+                value = "-"
+            
+            # Label
+            label_text = self.font_tiny.render(f"{label}:", True, (120, 140, 180))
+            self.screen.blit(label_text, (panel_x + 8, y_offset))
+            
+            # Valor (destacado)
+            value_text = self.font_tiny.render(str(value), True, (255, 255, 255))
+            self.screen.blit(value_text, (panel_x + 100, y_offset))
+            
+            y_offset += line_height
+        
+        # Timing info
+        y_offset += 5
+        start = self.acorde_atual.get("start", 0)
+        end = self.acorde_atual.get("end", 0)
+        timing_text = self.font_tiny.render(f"⏱ {start:.2f}s → {end:.2f}s", True, (180, 180, 200))
+        self.screen.blit(timing_text, (panel_x + 8, y_offset))
 
     def _draw_correct_screen(self, cx, cy):
         """Tela de acerto (breve transição)."""
