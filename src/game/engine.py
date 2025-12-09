@@ -699,7 +699,7 @@ class MusicGame:
         self.screen.blit(replay_text, replay_rect)
 
     def _draw_hud(self):
-        """Desenha o HUD (score, progresso)."""
+        """Desenha o HUD (score, progresso, configurações)."""
         # Score
         score_text = self.font_small.render(f"Score: {self.score}", True, (255, 255, 255))
         self.screen.blit(score_text, (20, 20))
@@ -710,6 +710,26 @@ class MusicGame:
             True, (200, 200, 200)
         )
         self.screen.blit(progress_text, (self.WIDTH - progress_text.get_width() - 20, 20))
+        
+        # Sidebar de configurações (canto superior esquerdo, abaixo do score)
+        sidebar_y = 55
+        
+        # Timbre atual
+        timbre_nome = self.timbres[self.timbre_index].value.upper()
+        timbre_text = self.font_small.render(f"♪ {timbre_nome}", True, (100, 200, 255))
+        self.screen.blit(timbre_text, (20, sidebar_y))
+        
+        # Fail Mode status
+        if self.fail_mode_enabled:
+            fail_text = self.font_small.render("⏱ FAIL: ON", True, (255, 100, 100))
+        else:
+            fail_text = self.font_small.render("⏱ FAIL: OFF", True, (100, 255, 100))
+        self.screen.blit(fail_text, (20, sidebar_y + 28))
+        
+        # Dica de teclas (pequena)
+        hint_font = pygame.font.SysFont("Arial", 16)
+        hint_text = hint_font.render("T=Timbre  M=Fail", True, (100, 100, 120))
+        self.screen.blit(hint_text, (20, sidebar_y + 56))
 
     def _draw_particles(self):
         """Desenha partículas de feedback."""
