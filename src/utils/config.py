@@ -66,3 +66,29 @@ FAIL_COOLDOWN_SECONDS = (
 MIN_CHORD_DURATION = (
     1.0  # Duração mínima do acorde (em segundos) para contar como FAIL se não tocar
 )
+
+# --- CONFIGURAÇÕES DE GESTOS ---
+GESTURE_TOLERANCE = 0.7  # Confiança mínima para aceitar gesto (0.0-1.0)
+GESTURE_HOLD_TIME = 0.3  # Tempo que o gesto deve ser mantido (segundos)
+SHOW_GESTURE_DEBUG = False  # Mostrar debug dos landmarks/detecção
+
+# Mapeamento de acordes → gestos
+# Gestos disponíveis: OPEN_HAND, FIST, PEACE, THUMB_UP, INDEX_POINT, ROCK
+CHORD_GESTURE_MAP = {
+    # Acordes maiores
+    "G": "OPEN_HAND",       # Mão aberta ✋
+    "C": "PEACE",           # Paz ✌️
+    "D": "THUMB_UP",        # Joinha 👍
+    "E": "ROCK",            # Rock 🤘
+    "F": "INDEX_POINT",     # Apontar 👆
+    "A": "PEACE",           # Paz ✌️
+    "B": "THUMB_UP",        # Joinha 👍
+    # Acordes menores
+    "Am": "FIST",           # Punho ✊
+    "Am7": "FIST",          # Punho ✊
+    "Em": "FIST",           # Punho ✊
+    "Dm": "INDEX_POINT",    # Apontar 👆
+    "Bm": "ROCK",           # Rock 🤘
+    "Fm": "INDEX_POINT",    # Apontar 👆
+}
+

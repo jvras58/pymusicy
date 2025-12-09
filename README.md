@@ -1,240 +1,206 @@
-# 🎸 Chord Hero AI – Harmonia Ativa
+# 🎸 Chord Hero AI – Jogo de Gestos Musicais
 
-O **Chord Hero AI** é um experimento interativo que transforma sua **webcam em um instrumento musical**.
+O **Chord Hero AI** é um jogo interativo que transforma sua **webcam em um instrumento musical**.
 
-Diferente de jogos de ritmo tradicionais, em que você só aperta botões para ganhar pontos, aqui **você realmente toca a harmonia da música**:
+Diferente de jogos de ritmo tradicionais, aqui **você faz gestos com a mão para tocar acordes**:
 
-- Se você **não toca**, a música fica “vazia”.
-- Se você **toca no ritmo**, o acorde correto é sintetizado em tempo real e **preenche a música**.
-
----
-
-## 🧠 Como funciona
-
-### 1. Conceito de “Harmonia Ativa”
-
-A música é separada em duas camadas:
-
-- **Backing Track (fundo)**  
-  Bateria, baixo e vocais tocam continuamente a partir de um arquivo `.mp3`.
-
-- **Harmonia (sintetizador)**  
-  Os acordes de guitarra/piano/teclado **não estão** no `.mp3`.  
-  Eles são gerados matematicamente pelo código (**Python + NumPy**) **apenas quando você ativa o gesto**.
-
-Isso cria a ilusão de que **seus dedos estão produzindo o som**.
-
-### 2. Fluxo de dados
-
-1. **Leitura do JSON**  
-   O jogo carrega um mapa da música (`chords.json`) que diz, por exemplo:  
-   _“Dos 2.0s aos 4.0s, o acorde é Sol Maior (`G:maj`)”_.
-
-2. **Visão computacional**  
-   O **MediaPipe** rastreia sua mão ~30 vezes por segundo via webcam.
-
-3. **Gesto de ativação**  
-   O jogo mede a distância entre **Polegar** e **Indicador**:  
-   - Distância `< 40px` → **PINÇA (toque)**.
-
-4. **Síntese de áudio**  
-   Se você fizer a pinça **dentro da janela de um acorde**, o código:
-   - calcula as frequências das notas desse acorde  
-     (ex.: G = 392 Hz, B = 493 Hz, D = 587 Hz),
-   - mistura as ondas senoidais,
-   - e toca o som em tempo real.
+- A música **pausa** no início de cada acorde
+- Você deve fazer o **gesto correto** correspondente ao acorde
+- Quando acerta, o acorde é sintetizado e a **música avança**
 
 ---
 
-## 🏗️ Arquitetura do Projeto
+## 🎮 Como Jogar
 
-O projeto segue uma estrutura modular organizada em pastas para facilitar a manutenção e expansão. Abaixo, uma visão geral dos diretórios e arquivos principais:
-
-### Estrutura Geral
-
-```
-pymusicy/
-├── .gitignore              # Arquivo para ignorar arquivos temporários no Git (ex.: __pycache__, .venv)
-├── .python-version         # Especifica a versão do Python recomendada (3.12)
-├── main.py                 # Ponto de entrada do jogo; inicializa e executa a classe MusicGame
-├── Makefile                # Scripts de automação para instalação, execução e limpeza (usa uv)
-├── pyproject.toml          # Configuração do projeto Python (dependências, versão, etc.)
-├── README.md               # Este arquivo de documentação
-└── src/                    # Código-fonte principal
-    ├── assets/             # Recursos estáticos
-    │   └── chords.json     # Dados JSON com os acordes e tempos da música (ex.: start, end, chord_majmin)
-    │   └── musica.mp3      # Musica mp3
-    ├── audio/              # Módulo de síntese de áudio
-    │   └── synthesizer.py  # Classe Sintetizador: gera ondas sonoras para acordes usando NumPy e Pygame
-    ├── game/               # Lógica principal do jogo
-    │   └── engine.py       # Classe MusicGame: gerencia o loop do jogo, visão computacional, áudio e UI
-    ├── utils/              # Utilitários e configurações
-    │   ├── config.py       # Constantes musicais (notas base, intervalos) e dados de exemplo
-    │   └── data_loader.py  # Função para carregar dados de acordes do JSON ou fallback para padrão
-    └── vision/             # Módulo de visão computacional
-        └── tracker.py      # Classe HandTracker: detecta gestos da mão via MediaPipe e OpenCV
-```
-
-### Descrição dos Módulos Principais
-- **src/game/engine.py**: Núcleo do jogo. Integra todos os módulos (áudio, visão, dados) em um loop principal. Lida com entrada do usuário, renderização da UI e lógica de pontuação.
-- **src/audio/synthesizer.py**: Responsável pela geração de sons. Usa síntese aditiva para criar acordes em tempo real, com cache para otimização.
-- **src/vision/tracker.py**: Processa a webcam para detectar pinças (gestos de "toque"). Retorna posição e estado do gesto para o engine.
-- **src/utils/data_loader.py**: Carrega os dados dos acordes do arquivo JSON ou usa um conjunto padrão se o arquivo não existir.
-- **src/utils/config.py**: Contém definições musicais (frequências de notas, intervalos de acordes) e dados de exemplo para testes.
-- **src/assets/chords.json**: Arquivo de dados com o mapa de acordes da música (tempos de início/fim e nomes dos acordes).
-
-Essa estrutura permite fácil extensão, como adicionar novos modos de jogo ou sintetizadores alternativos.
-
-## 🛠️ Instalação e requisitos
-
-Você precisa de:
-
-- **Python 3.12 ou superior**
-- Gerenciador de pacotes **[uv](https://github.com/astral-sh/uv)**
-
-Instale as dependências com:
-
-```bash
-make install
-````
-
-Ou diretamente:
-
-```bash
-uv sync
-```
-
-Isso instalará as bibliotecas necessárias:
-
-* `pygame`
-* `opencv-python`
-* `mediapipe`
-* `numpy`
-
----
-
-## 🏗️ Construindo um Executável
-
-Para criar um executável standalone do jogo (útil para distribuição sem instalar Python), use o PyInstaller.
-
-### 1. Instalar dependências de desenvolvimento
-
-```bash
-make install-dev
-```
-
-Ou diretamente:
-
-```bash
-uv sync --group dev
-```
-
-### 2. Construir o executável
-
-```bash
-make build
-```
-
-Ou diretamente:
-
-```bash
-uv run pyinstaller --onefile main.py --add-data "src/assets;assets" --collect-data mediapipe --hidden-import mediapipe --hidden-import cv2
-```
-
-O executável será gerado em `dist/main.exe` (no Windows).
-
-**Nota:** Os arquivos estáticos em `src/assets/` (como `chords.json` e `musica.mp3`) são incluídos automaticamente no executável.
-
----
-
-## 🎮 Como jogar
-
-### 1. Prepare o ambiente
-
-* Vá para um local **bem iluminado**.
-* Certifique-se de que a **webcam enxerga sua mão claramente**.
-
-### 2. Arquivos necessários
-
-Na pasta do projeto:
-
-* (Opcional, mas recomendado) `src/assets/musica.mp3`
-* (Opcional) `src/assets/chords.json` com os tempos da música
-
-> Se não houver `chords.json`, o jogo usa um **padrão de demonstração**.
-
-### 3. Executando o jogo
-
-Com `make`:
+### 1. Execute o jogo
 
 ```bash
 make run
 ```
 
-Ou diretamente com `uv`:
+Ou diretamente:
 
 ```bash
 uv run main.py
 ```
 
-### 4. Interface
+### 2. Tela Inicial
 
-* **Círculo central**: pulsa no ritmo
+- Pressione **ESPAÇO** para iniciar
+- Veja os **5 gestos disponíveis** com seus emojis
 
-  * 🔵 **Azul**: aguardando toque
-  * 🟢 **Verde**: toque confirmado (acorde soando)
+### 3. Gameplay
 
-* **Barra inferior**: mostra quanto tempo falta para o acorde mudar.
+1. A música pausa e mostra o **acorde atual** com o **gesto esperado**
+2. Faça o gesto correspondente com sua mão na frente da câmera
+3. Mantenha o gesto por ~0.3 segundos (o arco verde mostra o progresso)
+4. Quando aceito, você vê "CORRETO!" e a música toca
+5. Repita para cada acorde até o fim!
 
-* **Texto central**: exibe o nome do acorde atual (ex.: `Cm`, `G`, `A#`).
+### 4. Gestos Disponíveis
 
-### 5. Movimento da mão
+| Gesto | Emoji | Descrição | Acordes |
+|-------|-------|-----------|---------|
+| **Mão Aberta** | ✋ | Todos os dedos estendidos | G, E |
+| **Punho** | ✊ | Mão fechada | Am, Em |
+| **Paz** | ✌ | Indicador + médio estendidos | C, A |
+| **Joinha** | 👍 | Polegar para cima | D, B |
+| **Apontar** | 👆 | Indicador estendido | F, Dm |
 
-* Use movimentos de **“pinça”** ou **“bicar”**:
+### 5. Interface
 
-  * Juntar e separar **polegar e indicador** no ritmo da batida.
-* Você pode:
+- **Círculo central**: Mostra o gesto esperado
+  - 🔵 **Azul**: Aguardando gesto
+  - 🟢 **Verde**: Gesto correto detectado
+- **Arco de progresso**: Mostra quanto tempo falta para confirmar o gesto
+- **Canto inferior direito**: Seu gesto atual + nível de confiança
+- **Preview**: Mostra o próximo acorde e gesto
 
-  * **Dedilhar várias vezes** dentro do mesmo acorde (criar ritmo), ou
-  * **Segurar o gesto** para um som mais longo
-    (dependendo do envelope do sintetizador).
+### 6. Controles do Teclado
+
+| Tecla | Ação |
+|-------|------|
+| `ESPAÇO` | Iniciar jogo / Reiniciar após fim |
+| `M` | Toggle Fail Mode (liga/desliga penalidade por tempo) |
+| `T` | Trocar Timbre do sintetizador |
+| `ESC` | Sair do jogo |
+
+### 7. Timbres Disponíveis
+
+Pressione **T** para alternar entre os timbres:
+
+| Timbre | Descrição |
+|--------|-----------|
+| **Piano** | Som clássico de piano elétrico (padrão) |
+| **Guitar** | Guitarra acústica com harmônicos ricos |
+| **Synth** | Sintetizador lead estilo dente de serra |
+| **Pad** | Som atmosférico e suave com chorus |
+| **Organ** | Órgão elétrico estilo Hammond |
+
+### 8. Fail Mode
+
+Quando **ativado** (padrão), você tem um tempo limite para fazer cada gesto:
+- Uma barra de tempo mostra quanto tempo resta (verde → amarelo → vermelho)
+- Se o tempo acabar, você entra no modo **ERROU!** com penalidade
+- Pressione **M** para desativar e jogar sem pressão de tempo
 
 ---
 
-## 🎵 Personalizando (sua própria música)
+## 🧠 Como Funciona
 
-Para usar **qualquer música** no jogo, você precisa de dois passos:
+### Fluxo do Jogo
 
-### 1. Áudio (`musica.mp3`)
-
-Coloque o arquivo de áudio na pasta do projeto e renomeie para:
-
-```text
-musica.mp3
+```
+INTRO → [ESPAÇO] → AGUARDANDO GESTO → [gesto correto] → CORRETO! → TOCANDO → próximo acorde...
 ```
 
-#### Escolha da faixa: original vs. backing track
+### Detecção de Gestos
 
-Para a experiência ser máxima (aquela sensação de **“uau, sou eu quem está tocando!”**), o ideal é que o arquivo `musica.mp3` seja uma **Backing Track**: uma faixa de fundo **sem o instrumento harmônico principal** (guitarra/piano/teclado).
+O jogo usa **MediaPipe Hands** para detectar landmarks da mão e classifica gestos baseado em quais dedos estão estendidos:
 
-* **Se você usar a música original completa** (com a guitarra/piano original tocando):
+- **Mão aberta**: 5 dedos estendidos
+- **Punho**: 0 dedos estendidos
+- **Paz**: Indicador + médio
+- **Joinha**: Apenas polegar
+- **Apontar**: Apenas indicador
 
-  * **Funciona?** Sim, perfeitamente.
-  * **Sensação:** vira um **reforço**. Você sente que está tocando junto com a banda, como uma segunda guitarra ou dobrando o piano. Ainda é divertido, mas a música não “morre” se você parar.
+### Síntese de Acordes
 
-* **Se você usar uma Backing Track** (só bateria, baixo, etc.):
+Quando você acerta o gesto, o sintetizador gera o acorde em tempo real usando **síntese aditiva**:
 
-  * **Sensação:** é de **autoria total**.
+1. Calcula as frequências das notas do acorde
+2. Gera ondas senoidais com harmônicos
+3. Aplica envelope ADSR para som natural
 
-    * Se você parar, a harmonia some e fica só a “cozinha” (bateria/baixo).
-    * Quando você acerta, a música fica completa.
+---
 
-### 2. Acordes (`chords.json`)
+## 🏗️ Arquitetura do Projeto
 
-Crie um arquivo `chords.json` com a estrutura abaixo.
-Você pode usar ferramentas de Music AI para extrair automaticamente **acordes e tempos** de uma música.
+```
+pymusicy/
+├── main.py                 # Ponto de entrada
+├── Makefile                # Scripts de automação
+├── pyproject.toml          # Configuração Python
+└── src/
+    ├── assets/
+    │   ├── chords.json     # Mapa de acordes da música
+    │   └── musica.mp3      # Arquivo de áudio
+    ├── audio/
+    │   └── synthesizer.py  # Síntese de acordes
+    ├── game/
+    │   └── engine.py       # Lógica principal e UI
+    ├── utils/
+    │   ├── config.py       # Configurações e mapeamentos
+    │   ├── data_loader.py  # Carregamento de dados
+    │   └── paths.py        # Caminhos de arquivos
+    └── vision/
+        ├── tracker.py          # Detecção de mãos via MediaPipe
+        └── gesture_recognizer.py  # Classificação de gestos
+```
 
-#### Exemplo de estrutura
+---
+
+## ⚙️ Configuração
+
+### Mapeamento de Gestos
+
+Edite `src/utils/config.py` para personalizar qual gesto corresponde a cada acorde:
+
+```python
+CHORD_GESTURE_MAP = {
+    "G": "OPEN_HAND",       # ✋
+    "Am": "FIST",           # ✊
+    "C": "PEACE",           # ✌
+    "D": "THUMB_UP",        # 👍
+    "F": "INDEX_POINT",     # 👆
+    # Adicione mais...
+}
+```
+
+### Sensibilidade
+
+```python
+GESTURE_TOLERANCE = 0.7   # Confiança mínima (0.0-1.0)
+GESTURE_HOLD_TIME = 0.3   # Tempo para confirmar gesto (segundos)
+```
+
+---
+
+## 🛠️ Instalação
+
+### Requisitos
+
+- **Python 3.12 ou superior**
+- Gerenciador de pacotes **[uv](https://github.com/astral-sh/uv)**
+- Webcam
+
+### Instalação
+
+```bash
+make install
+```
+
+Ou:
+
+```bash
+uv sync
+```
+
+Isso instalará:
+- `pygame` (áudio e gráficos)
+- `opencv-python` (captura de vídeo)
+- `mediapipe` (detecção de mãos)
+- `numpy` (síntese de áudio)
+
+---
+
+## 🎵 Personalizando
+
+### Usando sua própria música
+
+1. **Áudio**: Coloque seu arquivo em `src/assets/musica.mp3`
+
+2. **Acordes**: Crie `src/assets/chords.json` com a estrutura:
 
 ```json
 [
@@ -253,101 +219,35 @@ Você pode usar ferramentas de Music AI para extrair automaticamente **acordes e
 ]
 ```
 
-* `start` / `end`: segundos onde o acorde começa e termina.
-* `chord_majmin`: nota fundamental + tipo (`:maj`, `:min`).
-
-  * O sintetizador entende esses sufixos para calcular terças e quintas.
-* `chord_simple_pop`: texto amigável exibido na tela para o jogador.
+Você pode usar ferramentas de **Music AI** para extrair acordes automaticamente.
 
 ---
 
-## 🎧 Exemplo: música de demonstração
+## 🏗️ Construindo Executável
 
-O projeto já inclui uma versão karaokê de **“Anunciação” (Alceu Valença)** com:
-
-* `musica.mp3`
-* `chords.json` correspondente
-
-Tudo pronto para você testar o fluxo completo logo de cara.
-
----
-
-## ⚠️ Sistema de Penalidade (Fail Mode)
-
-O jogo possui um **modo de penalidade** que adiciona desafio e consequências quando você perde um acorde.
-
-### Como funciona
-
-1. **Monitoramento**: O jogo monitora se você tocou o acorde atual (fez o gesto de pinça).
-
-2. **Detecção de erro**: Quando o tempo do acorde acaba e você **não tocou**, o jogo entra no **Modo FAIL**.
-
-3. **Modo FAIL**:
-   - A música **pausa imediatamente**
-   - Um **som dissonante de erro** toca (acorde feio sintetizado)
-   - A tela fica **vermelha pulsante** com a mensagem **"ERROU!"**
-   - Uma barra de progresso mostra o tempo restante da penalidade
-   - Após o tempo de penalidade, a música **retoma automaticamente**
-
-### Configurações
-
-Todas as configurações do Fail Mode estão em `src/utils/config.py`:
-
-```python
-# --- CONFIGURAÇÕES DE PENALIDADE ---
-FAIL_MODE_ENABLED = True      # True = ativado, False = desativado
-PENALTY_TIME_SECONDS = 3.0    # Tempo de penalidade (segundos)
-FAIL_COOLDOWN_SECONDS = 2.0   # Tempo de imunidade após um FAIL
-MIN_CHORD_DURATION = 1.0      # Duração mínima do acorde para contar como erro
+```bash
+make install-dev
+make build
 ```
 
-| Variável | Descrição | Valor Padrão |
-|----------|-----------|--------------|
-| `FAIL_MODE_ENABLED` | Ativa ou desativa completamente o sistema de penalidade | `True` |
-| `PENALTY_TIME_SECONDS` | Quanto tempo (em segundos) você fica "preso" na tela de erro | `3.0` |
-| `FAIL_COOLDOWN_SECONDS` | Tempo de "imunidade" após sair de um FAIL (evita FAILs consecutivos) | `2.0` |
-| `MIN_CHORD_DURATION` | Acordes mais curtos que esse valor (em segundos) não disparam FAIL | `1.0` |
-
-### Desativando o Fail Mode
-
-Para jogar no **modo relaxado** (sem penalidades), basta editar `src/utils/config.py`:
-
-```python
-FAIL_MODE_ENABLED = False
-```
-
-### Dicas para evitar FAILs
-
-- Fique atento ao **arco de progresso** ao redor do círculo central — ele mostra quanto tempo resta para tocar
-- Acordes muito curtos (< 1 segundo) são ignorados pelo sistema de FAIL
-- Após um FAIL, você tem um período de imunidade para se recuperar
+O executável será gerado em `dist/main.exe`.
 
 ---
 
-## 🧪 Detalhes técnicos do sintetizador
+## 🎧 Exemplo Incluído
 
-O motor de som usa **síntese aditiva simples**:
+O projeto inclui uma versão karaokê de **"Anunciação" (Alceu Valença)** com:
 
-1. Para cada nota do acorde:
+- `musica.mp3`
+- `chords.json` correspondente
 
-   * é gerada uma **onda senoidal fundamental**.
-
-2. São adicionados **harmônicos**:
-
-   * 2× e 3× a frequência fundamental,
-   * com volume menor para dar **timbre** ao som.
-
-3. É aplicado um **envelope ADSR** simplificado:
-
-   * **Ataque rápido**,
-   * **decay** exponencial,
-   * para que o som não pareça um “bip” estático de computador,
-   * mas sim algo próximo a **uma corda vibrando**.
+Pronto para testar! 🎶
 
 ---
 
-## 🚀 Próximos passos
+## 🚀 Dicas
 
-* Trocar a música e o `chords.json` para testar diferentes estilos.
-* Refinar gestos, envelopes e timbres para aproximar ainda mais de um instrumento real.
-* Integrar novos modos de jogo (ex.: treino de progressões, modos de improviso, etc.).
+- Use um ambiente **bem iluminado**
+- Mantenha a mão **visível e estável** na frente da câmera
+- Pratique os gestos antes de jogar
+- O arco verde ao redor do círculo mostra o progresso do gesto
