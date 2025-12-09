@@ -1,6 +1,6 @@
-# 🎸 Chord Hero AI – Jogo de Gestos Musicais
+# 🎸AirChords – Jogo de Gestos Musicais
 
-O **Chord Hero AI** é um jogo interativo que transforma sua **webcam em um instrumento musical**.
+O **AirChords** é um jogo interativo que transforma sua **webcam em um instrumento musical**.
 
 Diferente de jogos de ritmo tradicionais, aqui **você faz gestos com a mão para tocar acordes**:
 
