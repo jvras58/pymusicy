@@ -21,6 +21,8 @@ from src.utils.paths import get_assets_path
 from src.utils.config import (
     GESTURE_HOLD_TIME,
     SHOW_GESTURE_DEBUG,
+    FAIL_MODE_ENABLED,
+    PENALTY_TIME_SECONDS,
 )
 
 
@@ -30,6 +32,7 @@ class GameState(Enum):
     WAITING_FOR_GESTURE = "waiting"      # Aguardando gesto correto
     GESTURE_CORRECT = "correct"          # Gesto correto, tocando acorde
     PLAYING = "playing"                  # Música tocando até próximo acorde
+    FAIL = "fail"                        # Erro! Não fez o gesto a tempo
     FINISHED = "finished"                # Música terminou
 
 
@@ -76,6 +79,11 @@ class MusicGame:
         # Controle de música
         self.music_paused = True
         self.pause_position = 0
+        self.waiting_start_time = 0      # Quando começou a esperar o gesto
+        
+        # Controle de FAIL
+        self.fail_start_time = 0
+        self.erros = 0
         
         # Feedback visual
         self.feedback_visual = []
@@ -109,10 +117,12 @@ class MusicGame:
         self.acorde_index = 0
         self.score = 0
         self.acertos = 0
+        self.erros = 0
         
         if self.acorde_index < len(self.dados_chords):
             self.acorde_atual = self.dados_chords[self.acorde_index]
             self.game_state = GameState.WAITING_FOR_GESTURE
+            self.waiting_start_time = time.time()  # Marcar início da espera
             
             # Iniciar música pausada no início
             if self.usando_musica_real:
@@ -136,6 +146,7 @@ class MusicGame:
         
         self.acorde_atual = self.dados_chords[self.acorde_index]
         self.game_state = GameState.WAITING_FOR_GESTURE
+        self.waiting_start_time = time.time()  # Marcar início da espera
         
         # Pausar música no início do novo acorde
         if self.usando_musica_real:
@@ -192,6 +203,15 @@ class MusicGame:
             if self.acorde_atual is None:
                 return
             
+            # Calcular tempo limite baseado na duração do acorde
+            chord_duration = self.acorde_atual["end"] - self.acorde_atual["start"]
+            time_waiting = time.time() - self.waiting_start_time
+            
+            # Verificar timeout (FAIL MODE)
+            if FAIL_MODE_ENABLED and time_waiting >= chord_duration:
+                self._entrar_fail_mode()
+                return
+            
             # Verificar gesto
             chord_name = self.acorde_atual["chord_simple_pop"]
             is_correct, confidence, detected_gesture = self.gesture_recognizer.is_gesture_correct(
@@ -235,9 +255,28 @@ class MusicGame:
             if music_time >= self.acorde_atual["end"]:
                 self.avancar_acorde()
         
+        elif self.game_state == GameState.FAIL:
+            # Modo FAIL - aguardar tempo de penalidade
+            tempo_na_penalidade = time.time() - self.fail_start_time
+            
+            if tempo_na_penalidade >= PENALTY_TIME_SECONDS:
+                # Sair do FAIL e avançar para próximo acorde
+                self.avancar_acorde()
+        
         elif self.game_state == GameState.FINISHED:
             # Jogo terminou
             pass
+    
+    def _entrar_fail_mode(self):
+        """Entra no modo de penalidade quando o jogador não faz o gesto a tempo."""
+        self.game_state = GameState.FAIL
+        self.fail_start_time = time.time()
+        self.erros += 1
+        
+        # Tocar som de erro
+        self.synth.tocar_som_erro()
+        
+        print(f"FAIL! Não fez o gesto a tempo!")
 
     def draw_ui(self, frame_cv, landmarks):
         """Desenha a interface do jogo."""
@@ -274,6 +313,9 @@ class MusicGame:
         
         elif self.game_state == GameState.PLAYING:
             self._draw_playing_screen(cx, cy)
+        
+        elif self.game_state == GameState.FAIL:
+            self._draw_fail_screen(cx, cy)
         
         elif self.game_state == GameState.FINISHED:
             self._draw_finished_screen(cx, cy)
@@ -440,6 +482,39 @@ class MusicGame:
             if fill_width > 0:
                 pygame.draw.rect(self.screen, (0, 200, 255), (bar_x, bar_y, fill_width, bar_height), border_radius=4)
         
+        # Barra de tempo restante (se FAIL mode ativo)
+        if FAIL_MODE_ENABLED and self.acorde_atual:
+            chord_duration = self.acorde_atual["end"] - self.acorde_atual["start"]
+            time_waiting = time.time() - self.waiting_start_time
+            tempo_restante = chord_duration - time_waiting
+            progresso_tempo = time_waiting / chord_duration
+            
+            # Barra de tempo no topo
+            bar_width = 600
+            bar_height = 12
+            bar_x = cx - bar_width // 2
+            bar_y = 660
+            
+            # Cor muda de verde para vermelho conforme o tempo passa
+            if progresso_tempo < 0.5:
+                cor_barra = (100, 255, 100)  # Verde
+            elif progresso_tempo < 0.8:
+                cor_barra = (255, 200, 0)  # Amarelo
+            else:
+                cor_barra = (255, 100, 100)  # Vermelho
+            
+            # Fundo da barra
+            pygame.draw.rect(self.screen, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height), border_radius=3)
+            # Preenchimento (diminui conforme tempo passa)
+            fill_width = int(bar_width * (1 - progresso_tempo))
+            if fill_width > 0:
+                pygame.draw.rect(self.screen, cor_barra, (bar_x, bar_y, fill_width, bar_height), border_radius=3)
+            
+            # Texto do tempo
+            tempo_text = self.font_small.render(f"Tempo: {tempo_restante:.1f}s", True, cor_barra)
+            tempo_rect = tempo_text.get_rect(center=(cx, bar_y - 20))
+            self.screen.blit(tempo_text, tempo_rect)
+        
         # Debug de gestos
         if SHOW_GESTURE_DEBUG and landmarks is not None:
             self._draw_gesture_debug(landmarks, detected_gesture, confidence)
@@ -521,26 +596,97 @@ class MusicGame:
                 next_emoji_surf, _ = self.emoji_font.render(next_emoji, (150, 150, 200))
                 self.screen.blit(next_emoji_surf, (cx + 50, cy + 105))
 
+    def _draw_fail_screen(self, cx, cy):
+        """Tela de penalidade (FAIL)."""
+        tempo_na_penalidade = time.time() - self.fail_start_time
+        
+        # Overlay vermelho pulsante
+        pulse_intensity = int(150 + 50 * math.sin(time.time() * 8))
+        overlay = pygame.Surface((self.WIDTH, self.HEIGHT))
+        overlay.set_alpha(pulse_intensity)
+        overlay.fill((200, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Texto "ERROU!" com sombra
+        font_erro = pygame.font.SysFont("Arial", 100, bold=True)
+        
+        # Sombra
+        sombra = font_erro.render("ERROU!", True, (100, 0, 0))
+        sombra_rect = sombra.get_rect(center=(cx + 4, cy - 50 + 4))
+        self.screen.blit(sombra, sombra_rect)
+        
+        # Texto principal
+        erro_text = font_erro.render("ERROU!", True, (255, 255, 255))
+        erro_rect = erro_text.get_rect(center=(cx, cy - 50))
+        self.screen.blit(erro_text, erro_rect)
+        
+        # Mostrar qual gesto era esperado
+        if self.acorde_atual and self.emoji_font:
+            chord_name = self.acorde_atual["chord_simple_pop"]
+            expected_gesture = self.gesture_recognizer.get_expected_gesture(chord_name)
+            expected_emoji = self.gesture_recognizer.get_gesture_emoji(expected_gesture)
+            expected_name = self.gesture_recognizer.get_gesture_name(expected_gesture)
+            
+            esperado_text = self.font_small.render(f"Esperado: {chord_name}", True, (255, 200, 200))
+            esperado_rect = esperado_text.get_rect(center=(cx, cy + 30))
+            self.screen.blit(esperado_text, esperado_rect)
+            
+            # Emoji do gesto esperado
+            emoji_surf, emoji_rect = self.emoji_font.render(expected_emoji, (255, 200, 200))
+            emoji_rect.center = (cx, cy + 80)
+            self.screen.blit(emoji_surf, emoji_rect)
+        
+        # Barra de progresso da penalidade
+        tempo_restante = PENALTY_TIME_SECONDS - tempo_na_penalidade
+        progresso = tempo_na_penalidade / PENALTY_TIME_SECONDS
+        
+        bar_width = 400
+        bar_height = 25
+        bar_x = cx - bar_width // 2
+        bar_y = cy + 140
+        
+        # Fundo da barra
+        pygame.draw.rect(self.screen, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height), border_radius=5)
+        # Progresso
+        fill_width = int(bar_width * progresso)
+        pygame.draw.rect(self.screen, (255, 255, 255), (bar_x, bar_y, fill_width, bar_height), border_radius=5)
+        # Borda
+        pygame.draw.rect(self.screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 3, border_radius=5)
+        
+        # Texto do tempo restante
+        tempo_text = self.font_medium.render(f"Aguarde {tempo_restante:.1f}s", True, (255, 255, 255))
+        tempo_rect = tempo_text.get_rect(center=(cx, bar_y + bar_height + 40))
+        self.screen.blit(tempo_text, tempo_rect)
+
     def _draw_finished_screen(self, cx, cy):
         """Tela de fim de jogo."""
         # Título
         title = self.font_big.render("FIM!", True, (0, 255, 100))
-        title_rect = title.get_rect(center=(cx, cy - 100))
+        title_rect = title.get_rect(center=(cx, cy - 120))
         self.screen.blit(title, title_rect)
         
         # Score
         score_text = self.font_medium.render(f"Pontuação: {self.score}", True, (255, 255, 255))
-        score_rect = score_text.get_rect(center=(cx, cy))
+        score_rect = score_text.get_rect(center=(cx, cy - 30))
         self.screen.blit(score_text, score_rect)
         
         # Acertos
         percent = (self.acertos / self.total_acordes * 100) if self.total_acordes > 0 else 0
         acertos_text = self.font_small.render(
-            f"Acertos: {self.acertos}/{self.total_acordes} ({percent:.0f}%)", 
-            True, (200, 200, 200)
+            f"✓ Acertos: {self.acertos}/{self.total_acordes} ({percent:.0f}%)", 
+            True, (100, 255, 100)
         )
-        acertos_rect = acertos_text.get_rect(center=(cx, cy + 60))
+        acertos_rect = acertos_text.get_rect(center=(cx, cy + 30))
         self.screen.blit(acertos_text, acertos_rect)
+        
+        # Erros
+        if self.erros > 0:
+            erros_text = self.font_small.render(
+                f"✗ Erros: {self.erros}", 
+                True, (255, 100, 100)
+            )
+            erros_rect = erros_text.get_rect(center=(cx, cy + 70))
+            self.screen.blit(erros_text, erros_rect)
         
         # Replay
         replay_text = self.font_small.render("Pressione ESPAÇO para jogar novamente", True, (150, 200, 255))
