@@ -474,11 +474,11 @@ class MusicGame:
         cols = min(max_cols, num_acordes)
         rows = (num_acordes + cols - 1) // cols
         
-        # Dimensões do card (aumentadas para caber o texto)
-        card_width = 280
-        card_height = 90
-        spacing_x = 25
-        spacing_y = 12
+        # Dimensões do card (compacto: só acorde + emoji)
+        card_width = 180
+        card_height = 70
+        spacing_x = 20
+        spacing_y = 10
         
         # Calcular posição inicial (movida mais para baixo)
         total_width = cols * card_width + (cols - 1) * spacing_x
@@ -515,22 +515,13 @@ class MusicGame:
             
             # Nome do acorde
             chord_text = self.font_medium.render(chord_name, True, (255, 255, 255))
-            chord_rect = chord_text.get_rect(midleft=(x + 15, y + card_height // 2))
+            chord_rect = chord_text.get_rect(midleft=(x + 20, y + card_height // 2))
             self.screen.blit(chord_text, chord_rect)
             
-            # Emoji do gesto
+            # Emoji do gesto (centralizado à direita do card)
             emoji_surf, emoji_rect = self.emoji_font.render(emoji, (150, 200, 255))
-            emoji_rect.midright = (x + card_width - 60, y + card_height // 2)
+            emoji_rect.midright = (x + card_width - 20, y + card_height // 2)
             self.screen.blit(emoji_surf, emoji_rect)
-            
-            # Nome do gesto
-            gesto_text = self.font_small.render(nome_gesto, True, (150, 180, 200))
-            gesto_rect = gesto_text.get_rect(midleft=(x + card_width - 55, y + card_height // 2))
-            # Truncar se muito grande
-            if gesto_rect.right > x + card_width - 5:
-                gesto_text = self.font_small.render(nome_gesto[:8] + "..", True, (150, 180, 200))
-                gesto_rect = gesto_text.get_rect(midleft=(x + card_width - 55, y + card_height // 2))
-            self.screen.blit(gesto_text, gesto_rect)
         
         # Contador de acordes
         total_text = self.font_small.render(
