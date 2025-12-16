@@ -712,7 +712,7 @@ class MusicGame:
         
         # Configurações do painel (posicionado abaixo do HUD)
         panel_x = 15
-        panel_y = 200  # Movido para baixo para não sobrepor o HUD
+        panel_y = 230  # Movido mais para baixo para não sobrepor os controles
         panel_width = 200
         line_height = 22
         
