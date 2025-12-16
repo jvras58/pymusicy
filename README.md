@@ -62,6 +62,7 @@ uv run main.py
 |-------|------|
 | `ESPAÇO` | Iniciar jogo / Reiniciar após fim |
 | `M` | Toggle Fail Mode (liga/desliga penalidade por tempo) |
+| `H` | Proximo Gesto (liga/desliga o sistema de mostrar o proximo gesto) |
 | `T` | Trocar Timbre do sintetizador |
 | `ESC` | Sair do jogo |
 
