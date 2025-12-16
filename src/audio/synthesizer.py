@@ -315,3 +315,64 @@ class Sintetizador:
         except Exception as e:
             print(f"Erro ao gerar acorde {nome_acorde_full}: {e}")
             return None
+
+    def gerar_acorde_curto(self, nome_acorde_full: str, duracao: float = 0.3):
+        """
+        Gera uma versão curta do acorde para feedback imediato.
+        
+        Args:
+            nome_acorde_full: Nome do acorde (ex: 'G:maj', 'A:min')
+            duracao: Duração do som em segundos (padrão: 0.3s)
+        
+        Returns:
+            pygame.Sound ou None
+        """
+        cache_key = f"{nome_acorde_full}_{self.timbre_atual.value}_short_{duracao}"
+        
+        if cache_key in self.cache_acordes:
+            return self.cache_acordes[cache_key]
+
+        try:
+            if ":" in nome_acorde_full:
+                tonica, tipo = nome_acorde_full.split(":")
+            else:
+                tonica = nome_acorde_full
+                tipo = "maj"
+
+            freq_base = NOTAS_BASE.get(tonica, 261.63)
+            intervalos = INTERVALOS.get(tipo, INTERVALOS["maj"])
+
+            # Criar acorde curto
+            n_samples = int(self.sample_rate * duracao)
+            t = np.linspace(0, duracao, n_samples, False)
+            
+            audio_final = np.zeros((n_samples, 2), dtype=np.float64)
+
+            for semi_tons in intervalos:
+                freq_nota = freq_base * (2 ** (semi_tons / 12.0))
+                
+                # Onda simples com harmônicos
+                onda = 0.6 * np.sin(2 * np.pi * freq_nota * t)
+                onda += 0.25 * np.sin(2 * np.pi * freq_nota * 2 * t)
+                onda += 0.1 * np.sin(2 * np.pi * freq_nota * 3 * t)
+                
+                # Envelope com ataque rápido e decay
+                envelope = np.exp(-3 * t) * (1 - np.exp(-50 * t))
+                onda = onda * envelope * 0.5
+                
+                audio_final[:, 0] += onda
+                audio_final[:, 1] += onda
+
+            # Normalizar
+            max_val = np.max(np.abs(audio_final))
+            if max_val > 0:
+                audio_final = (audio_final / max_val * 32767 * 0.8).astype(np.int16)
+            else:
+                audio_final = audio_final.astype(np.int16)
+
+            som = pygame.sndarray.make_sound(audio_final)
+            self.cache_acordes[cache_key] = som
+            return som
+        except Exception as e:
+            print(f"Erro ao gerar acorde curto {nome_acorde_full}: {e}")
+            return None

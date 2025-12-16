@@ -99,3 +99,12 @@ CHORD_GESTURE_MAP = {
     "Fm": "INDEX_POINT",    # Apontar 👆
 }
 
+# --- CONFIGURAÇÕES DE ÁUDIO ---
+SYNTH_ENABLED = True           # Som sintetizado ativo por padrão
+REAL_AUDIO_ENABLED = True      # Som real (sample da música) ativo por padrão
+REAL_SAMPLE_DURATION = 1.5     # Duração do sample real em segundos
+SYNTH_DURATION = 0.3           # Duração do som sintetizado curto
+
+# --- CONFIGURAÇÕES DE PREVIEW E DICAS ---
+HINT_ENABLED = True            # Mostrar dica do próximo gesto (H para toggle)
+PREVIEW_DURATION = 15.0        # Duração da tela de preview em segundos
