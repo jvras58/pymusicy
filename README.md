@@ -62,7 +62,9 @@ uv run main.py
 |-------|------|
 | `ESPAÇO` | Iniciar jogo / Reiniciar após fim |
 | `M` | Toggle Fail Mode (liga/desliga penalidade por tempo) |
-| `H` | Proximo Gesto (liga/desliga o sistema de mostrar o proximo gesto) |
+| `H` | Toggle Dica (liga/desliga mostrar próximo gesto) |
+| `S` | Toggle Synth (liga/desliga som sintetizado) |
+| `R` | Toggle Real Audio (liga/desliga sample da música) |
 | `T` | Trocar Timbre do sintetizador |
 | `ESC` | Sair do jogo |
 
@@ -84,6 +86,19 @@ Quando **ativado** (padrão), você tem um tempo limite para fazer cada gesto:
 - Uma barra de tempo mostra quanto tempo resta (verde → amarelo → vermelho)
 - Se o tempo acabar, você entra no modo **ERROU!** com penalidade
 - Pressione **M** para desativar e jogar sem pressão de tempo
+
+### 9. Opções de Áudio
+
+O jogo oferece **duas camadas de áudio** independentes:
+
+| Tecla | Toggle | Descrição |
+|-------|--------|-----------|
+| `S` | **Synth** | Som sintetizado em tempo real (feedback imediato) |
+| `R` | **Real** | Sample extraído da música no timestamp do acorde |
+
+- Por padrão, **ambos estão ativos**
+- O sample real requer `musica.wav` no diretório assets (converta o MP3 se necessário)
+- O HUD mostra o status atual: `[S] Synth: ON/OFF` e `[R] Real: ON/OFF`
 
 ---
 
