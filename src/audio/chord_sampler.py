@@ -9,7 +9,6 @@ import pygame
 import numpy as np
 import wave
 import os
-import threading
 
 
 class ChordSampler:
@@ -44,7 +43,8 @@ class ChordSampler:
         self._sample_cache = {}
         
         # Reservar um canal para samples
-        pygame.mixer.set_num_channels(16)
+        if pygame.mixer.get_num_channels() < 16:
+            pygame.mixer.set_num_channels(16)
         self._sample_channel = pygame.mixer.Channel(15)
         
         self._carregar_musica()

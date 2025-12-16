@@ -245,7 +245,7 @@ class MusicGame:
             return
         
         elif self.game_state == GameState.PREVIEW:
-            # Tela de preview - aguardar tempo ou ESCÇO para pular
+            # Tela de preview - aguardar tempo ou ESPAÇO para pular
             elapsed = time.time() - self.preview_start_time
             if elapsed >= PREVIEW_DURATION:
                 self._iniciar_primeiro_acorde()
@@ -977,11 +977,17 @@ class MusicGame:
         synth_text = self.font_small.render(f"[S] Synth: {synth_status}", True, synth_color)
         self.screen.blit(synth_text, (20, sidebar_y + 56))
         
+        # Audio status - Real Audio
+        real_status = "ON" if self.real_audio_enabled else "OFF"
+        real_color = (100, 255, 100) if self.real_audio_enabled else (150, 150, 150)
+        real_text = self.font_small.render(f"[R] Real: {real_status}", True, real_color)
+        self.screen.blit(real_text, (20, sidebar_y + 84))
+        
         # Hint status (dica do próximo gesto)
         hint_status = "ON" if self.hint_enabled else "OFF"
         hint_color = (100, 255, 100) if self.hint_enabled else (150, 150, 150)
         hint_text = self.font_small.render(f"[H] Dica: {hint_status}", True, hint_color)
-        self.screen.blit(hint_text, (20, sidebar_y + 84))
+        self.screen.blit(hint_text, (20, sidebar_y + 112))
 
     def _draw_particles(self):
         """Desenha partículas de feedback."""
