@@ -1057,7 +1057,6 @@ class MusicGame:
             ret, frame = self.cap.read()
             if not ret:
                 continue
-            frame = cv2.flip(frame, 1)
             
             # 3. Processamento de visão
             frame, is_pinching, pinch_pos, landmarks = self.tracker.process(frame)
